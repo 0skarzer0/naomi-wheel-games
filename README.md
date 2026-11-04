@@ -26,6 +26,14 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
    cómo compilar y siguientes pasos.
 3. Al terminar la sesión, actualiza ese `HANDOFF.md` y, si cambia el estado de algún juego, este README.
 
+### Pendientes generales (2026-11-04)
+
+- Probar en placa real Hang-On y Konami GT (MAME4ALL) y el nuevo control de Cannonball (START al soltar, START + R = vista).
+- **Estándar de controles común** para todos los juegos del mueble: hoy freno + START = crédito en MAME4ALL y = menú en Cannonball.
+- Daytona recomp: diagnosticar los parones a 1–2 fps (se pasará un vídeo).
+- Jambo! Safari: parche para usar el lazo con la palanca del Crazy Taxi sin tocar cableado (después, el resto de juegos NAOMI / NAOMI 2 / Atomiswave). Se publicarán solo los parches, nunca las ROMs.
+- Publicar el issue con el informe de Daytona en el repositorio de alphanu1.
+
 ---
 
 ## 1. Hardware de referencia
