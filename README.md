@@ -33,6 +33,8 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 - Daytona recomp: diagnosticar los parones a 1–2 fps (se pasará un vídeo).
 - Jambo! Safari: parche para usar el lazo con la palanca del Crazy Taxi sin tocar cableado (después, el resto de juegos NAOMI / NAOMI 2 / Atomiswave). Se publicarán solo los parches, nunca las ROMs.
 - Publicar el issue con el informe de Daytona en el repositorio de alphanu1.
+- dc2naomi: **Yu Suzuki Game Works Vol. 1** preparado como banco de pruebas (imagen de 201 MB con el disco
+  original, parches verificados); falta compilar el loader con KallistiOS y probar en Flycast / placa.
 
 ---
 
@@ -117,6 +119,7 @@ de netboot de DragonMinded.
 | **MAME4ALL Konami GT** | 🧪 Flycast OK | 60 fps | Velocidad, dirección y marcha TURBO verificadas |
 | **Daytona USA recomp** (rama `naomi`) | 🟠 Arranca | ~27 fps | Limitado por CPU (i960 ≈19 ms, TGP ≈7 ms por frame) |
 | **Daytona USA 2001** (DC → NAOMI) | 🔴 Parado | — | Pantalla negra; el cargador de juegos de Dreamcast en NAOMI no está resuelto |
+| **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | 🧪 Imagen lista | — | Banco de pruebas de dc2naomi: menú + Power Drift parcheados; sin probar |
 
 ### 4.1 Arquitectura del port MAME4ALL → NAOMI (lo que ya existe)
 
@@ -224,7 +227,8 @@ casi el mismo (SH-4 + PowerVR2 + AICA). Lo que cambia es el arranque (cabecera N
 | Atari Anniversary Edition | Sin juegos de coches |
 
 Todos dependen de que el cargador de juegos de Dreamcast en NAOMI funcione (falló con Daytona 2001).
-Un objetivo más pequeño (Yu Suzuki Game Works sería ideal) es buen banco de pruebas.
+**Yu Suzuki Game Works** es ahora el banco de pruebas: 204 MB de ficheros, cabe en la NetDIMM con sus
+LBA originales; análisis completo en el HANDOFF de dc2naomi.
 
 ---
 
