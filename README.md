@@ -28,7 +28,9 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 
 ### Pendientes generales (2026-11-04)
 
-- Probar en placa real Hang-On y Konami GT (MAME4ALL) y el nuevo control de Cannonball (START al soltar, START + R = vista).
+- MAME4ALL en placa real: Hang-On 47/16 fps y Konami GT 46/13 fps (en Flycast iban a 60), sonido malo y cuelgues (posiblemente con el contador de FPS activo); controles perfectos. Diagnosticar (ver HANDOFF de mame4all-naomi).
+- Probar el nuevo control de Cannonball (START al soltar, START + R = vista).
+- Probar dc2naomi con Yu Suzuki Game Works.
 - **Estándar de controles común** para todos los juegos del mueble: hoy freno + START = crédito en MAME4ALL y = menú en Cannonball.
 - Daytona recomp: diagnosticar los parones a 1–2 fps (se pasará un vídeo).
 - Jambo! Safari: parche para usar el lazo con la palanca del Crazy Taxi sin tocar cableado (después, el resto de juegos NAOMI / NAOMI 2 / Atomiswave). Se publicarán solo los parches, nunca las ROMs.
@@ -62,7 +64,7 @@ Consecuencias para los juegos:
 | Nivel | Qué significa | Juegos |
 |---|---|---|
 | ✅ **Funciona ya** | Arranca por netboot hoy | Crazy Taxi, Jambo! Safari, 18 Wheeler, juegos NAOMI 2 (Club Kart, King of Route 66, Wild Riders), Atomiswave convertidos (Maximum Speed, Faster Than Speed), **Cannonball (OutRun)** |
-| 🧪 **Hecho, pendiente de probar en placa** | Funciona en Flycast | **Hang-On** y **Konami GT** (MAME4ALL portado) |
+| ⚠️ **Hecho, lento en placa** | En Flycast a 60; en placa ~46 fps y cuelgues | **Hang-On** y **Konami GT** (MAME4ALL portado) |
 | 🟢 **Fácil** | Mismo port MAME4ALL, solo hay que añadir el driver | Super Hang-On, Enduro Racer, Spy Hunter, Max RPM, Turbo, Sprint 2, Super Sprint, Arkanoid… |
 | 🟡 **Medio** | Requiere portar otra versión de MAME/FBA o un port nativo | Pole Position, Super Off Road, Turbo OutRun, Power Drift, Super Monaco GP, OutRunners (decomp) |
 | 🟠 **Difícil** | Mucho trabajo o rendimiento justo | Daytona USA (recomp, ~27 fps), Wipeout / Mario Kart 64 (ports de DC), recopilatorios de Dreamcast |
@@ -115,8 +117,8 @@ de netboot de DragonMinded.
 | Proyecto | Estado | Rendimiento | Comentario |
 |---|---|---|---|
 | **Cannonball** (OutRun, motor reescrito) | ✅ Funciona | 60 fps | Solo con ROMs de OutRun (no sirve para Turbo OutRun ni Super Hang-On) |
-| **MAME4ALL Hang-On** | 🧪 Flycast OK | 60 emulados / 41–55 mostrados en carrera | Fix de VRAM aplicado (pantalla negra en placa real) |
-| **MAME4ALL Konami GT** | 🧪 Flycast OK | 60 fps | Velocidad, dirección y marcha TURBO verificadas |
+| **MAME4ALL Hang-On** | ⚠️ Lento en placa | Placa: 47/16; Flycast: 60 / 41–55 | Controles OK; cuelgue en etapa 1 |
+| **MAME4ALL Konami GT** | ⚠️ Lento en placa | Placa: 46/13; Flycast: 60 | Controles OK; sonido malo; cuelgue |
 | **Daytona USA recomp** (rama `naomi`) | 🟠 Arranca | ~27 fps | Limitado por CPU (i960 ≈19 ms, TGP ≈7 ms por frame) |
 | **Daytona USA 2001** (DC → NAOMI) | 🔴 Parado | — | Pantalla negra; el cargador de juegos de Dreamcast en NAOMI no está resuelto |
 | **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | 🧪 Imagen lista | — | Banco de pruebas de dc2naomi: menú + Power Drift parcheados; sin probar |
