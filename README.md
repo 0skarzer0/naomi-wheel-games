@@ -34,7 +34,7 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 - Probar dc2naomi con Yu Suzuki Game Works.
 - **Estándar de controles común** para todos los juegos del mueble: hoy freno + START = crédito en MAME4ALL y = menú en Cannonball.
 - Daytona recomp: en carrera va a ~13 fps y baja a 5–8 con muchos coches (medido con el cronómetro del juego). Issue publicado en el repositorio de alphanu1 (2026-11-05): esperar respuesta.
-- Jambo! Safari: **parche hecho** ([naomi-ct-patches/jambo-safari](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari)) para lanzar el lazo con la palanca del Crazy Taxi sin tocar cableado; verificado en intérprete SH-4, **falta probarlo en placa** (variante cruzada; si el sentido sale al revés, la directa). Después, el resto de juegos NAOMI / NAOMI 2 / Atomiswave con el mismo procedimiento ([naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches)).
+- Jambo! Safari: ✅ **resuelto con parche** ([naomi-ct-patches/jambo-safari](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari)): el lazo se lanza con la palanca del Crazy Taxi sin tocar cableado (variante cruzada, probada en placa). Siguiente: el resto de juegos NAOMI / NAOMI 2 / Atomiswave con el mismo procedimiento ([naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches)).
 - dc2naomi: **Yu Suzuki Game Works Vol. 1** preparado como banco de pruebas (imagen de 201 MB con el disco
   original, parches verificados); falta compilar el loader con KallistiOS y probar en Flycast / placa.
 
@@ -79,7 +79,7 @@ Consecuencias para los juegos:
 | Juego | Controles originales | En mueble Crazy Taxi | Notas |
 |---|---|---|---|
 | **Crazy Taxi** | Volante, 2 pedales, palanca D/R | ✅ Perfecto | Es el juego del mueble |
-| **Jambo! Safari** | Volante, palanca, pedales | ⚠️ Con parche | Mismo volante que Crazy Taxi, pero lee la palanca en las entradas del J2: sin el [parche de controles](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari) no se lanza el lazo |
+| **Jambo! Safari** | Volante, palanca, pedales | ✅ Con parche (probado en placa) | Mismo volante que Crazy Taxi, pero lee la palanca en las entradas del J2: sin el [parche de controles](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari) no se lanza el lazo |
 | **18 Wheeler: American Pro Trucker** (STD/DX) | Volante con force feedback, palanca de 3 posiciones (low/high/reverse), 2 pedales | ✅ Jugable | Volante con distinto tope (≈320°), se juega bien |
 | **Wave Runner GP** | Manillar de moto acuática | ✅ Jugable | El manillar es analógico como un volante |
 | **Ferrari F355 Challenge** (twin/deluxe) / **F355 Challenge 2** | Volante, 3 pedales, palanca de 6 velocidades (o levas) | ⚠️ Comprobar | El deluxe usa 3 placas/3 monitores; probar la versión twin/1 pantalla y el cambio automático |
