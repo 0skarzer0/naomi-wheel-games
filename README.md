@@ -122,7 +122,7 @@ de netboot de DragonMinded.
 | **MAME4ALL Hang-On** | ⚠️ Lento en placa | Placa: 47/16; Flycast: 60 / 41–55 | Controles OK; cuelgue en etapa 1 |
 | **MAME4ALL Konami GT** | ⚠️ Lento en placa | Placa: 46/13; Flycast: 60 | Controles OK; sonido malo; cuelgue |
 | **Daytona USA recomp** (rama `naomi`) | 🟠 Arranca | ~27 fps | Limitado por CPU (i960 ≈19 ms, TGP ≈7 ms por frame); sustituido por el port nativo |
-| **Daytona USA nativo** (rama `naomi-native`) | ✅ Funciona (voces en prueba) | Fluido en placa | El juego reescrito en C (dfchil/alphanu1), idéntico al original; assets desde la NetDIMM, JVS, SRAM |
+| **Daytona USA nativo** (rama `naomi-native`) | ✅ Funciona (voces en prueba) | Gráficos, música y controles perfectos en placa (fps por medir) | El juego reescrito en C (dfchil/alphanu1), idéntico al original; assets desde la NetDIMM, JVS, SRAM |
 | **Daytona USA 2001** (DC → NAOMI) | 🔴 Parado | — | Pantalla negra; el cargador de juegos de Dreamcast en NAOMI no está resuelto |
 | **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | 🧪 Flycast OK | — | Menú y Power Drift jugables en Flycast (NAOMI); pendiente de placa |
 
