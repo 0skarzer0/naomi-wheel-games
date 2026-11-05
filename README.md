@@ -17,6 +17,7 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 | [mame4all-naomi](https://github.com/0skarzer0/mame4all-naomi) | MAME4ALL (MAME 0.35) para NAOMI: Hang-On, Konami GT… | [HANDOFF.md](https://github.com/0skarzer0/mame4all-naomi/blob/naomi/HANDOFF.md) |
 | [dreamcast-cannonball](https://github.com/0skarzer0/dreamcast-cannonball/tree/naomi) (rama `naomi`) | Cannonball (OutRun) para NAOMI | [naomi/HANDOFF.md](https://github.com/0skarzer0/dreamcast-cannonball/blob/naomi/naomi/HANDOFF.md) |
 | [daytona-arcade-recomp](https://github.com/0skarzer0/daytona-arcade-recomp/tree/naomi) (rama `naomi`) | Recompilación de Daytona USA (Model 2) para NAOMI | [platform/dreamcast/HANDOFF.md](https://github.com/0skarzer0/daytona-arcade-recomp/blob/naomi/platform/dreamcast/HANDOFF.md) |
+| [daytona-arcade-recomp](https://github.com/0skarzer0/daytona-arcade-recomp/tree/naomi-native) (rama `naomi-native`) | **Port nativo** de Daytona USA (reescrito en C para SH-4, PR #58 del original) para NAOMI | [platform/dreamcast-native/naomi/HANDOFF.md](https://github.com/0skarzer0/daytona-arcade-recomp/blob/naomi-native/platform/dreamcast-native/naomi/HANDOFF.md) |
 | [dc2naomi](https://github.com/0skarzer0/dc2naomi) | Cargador de juegos de Dreamcast en NAOMI (experimental) | [HANDOFF.md](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md) |
 | [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches) | Parches de controles (IPS) para juegos NAOMI / NAOMI 2 / Atomiswave en el mueble Crazy Taxi | [HANDOFF.md](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md) |
 
@@ -27,13 +28,14 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
    cómo compilar y siguientes pasos.
 3. Al terminar la sesión, actualiza ese `HANDOFF.md` y, si cambia el estado de algún juego, este README.
 
-### Pendientes generales (2026-11-04)
+### Pendientes generales (2026-11-05)
 
 - MAME4ALL en placa real: Hang-On 47/16 fps y Konami GT 46/13 fps (en Flycast iban a 60), sonido malo y cuelgues (posiblemente con el contador de FPS activo); controles perfectos. Diagnosticar (ver HANDOFF de mame4all-naomi).
 - Probar el nuevo control de Cannonball (START al soltar, START + R = vista).
 - Probar dc2naomi con Yu Suzuki Game Works.
 - **Estándar de controles común** para todos los juegos del mueble: hoy freno + START = crédito en MAME4ALL y = menú en Cannonball.
-- Daytona recomp: en carrera va a ~13 fps y baja a 5–8 con muchos coches (medido con el cronómetro del juego). Issue publicado en el repositorio de alphanu1 (2026-11-05): esperar respuesta.
+- Daytona recomp: en carrera va a ~13 fps y baja a 5–8 con muchos coches (medido con el cronómetro del juego). Issue [#62](https://github.com/alphanu1/daytona-arcade-recomp/issues/62) en el repositorio de alphanu1 (2026-11-05); respuesta del autor: probar el **nuevo port nativo** (`platform/dreamcast-native`, 60 fps en Dreamcast).
+- **Daytona nativo en NAOMI** (rama `naomi-native`, 2026-11-05): compilado, imagen `.bin.gz` de 22,6 MB lista para el WiPi; **pendiente de probar en placa** (arranque a 60 fps, sonido, controles, guardado en SRAM 0x6000-0x7FFF). Lista de pruebas en su HANDOFF.
 - Jambo! Safari: ✅ **resuelto con parche** ([naomi-ct-patches/jambo-safari](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari)): el lazo se lanza con la palanca del Crazy Taxi sin tocar cableado (variante cruzada, probada en placa). Siguiente: el resto de juegos NAOMI / NAOMI 2 / Atomiswave con el mismo procedimiento ([naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches)).
 - dc2naomi: **Yu Suzuki Game Works Vol. 1** preparado como banco de pruebas (imagen de 201 MB con el disco
   original, parches verificados); falta compilar el loader con KallistiOS y probar en Flycast / placa.
@@ -119,7 +121,8 @@ de netboot de DragonMinded.
 | **Cannonball** (OutRun, motor reescrito) | ✅ Funciona | 60 fps | Solo con ROMs de OutRun (no sirve para Turbo OutRun ni Super Hang-On) |
 | **MAME4ALL Hang-On** | ⚠️ Lento en placa | Placa: 47/16; Flycast: 60 / 41–55 | Controles OK; cuelgue en etapa 1 |
 | **MAME4ALL Konami GT** | ⚠️ Lento en placa | Placa: 46/13; Flycast: 60 | Controles OK; sonido malo; cuelgue |
-| **Daytona USA recomp** (rama `naomi`) | 🟠 Arranca | ~27 fps | Limitado por CPU (i960 ≈19 ms, TGP ≈7 ms por frame) |
+| **Daytona USA recomp** (rama `naomi`) | 🟠 Arranca | ~27 fps | Limitado por CPU (i960 ≈19 ms, TGP ≈7 ms por frame); sustituido por el port nativo |
+| **Daytona USA nativo** (rama `naomi-native`) | 🧪 Compilado | 60 fps en Dreamcast (placa: por medir) | El juego reescrito en C (dfchil/alphanu1), idéntico al original; assets desde la NetDIMM, JVS, SRAM |
 | **Daytona USA 2001** (DC → NAOMI) | 🔴 Parado | — | Pantalla negra; el cargador de juegos de Dreamcast en NAOMI no está resuelto |
 | **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | 🧪 Flycast OK | — | Menú y Power Drift jugables en Flycast (NAOMI); pendiente de placa |
 
@@ -200,6 +203,7 @@ si se ajusta la sensibilidad.
 | **Cannonball** (OutRun) | Completo | ✅ Hecho | Motor reescrito en C++ |
 | **OutRunners decomp** (cheviman) | ~79 % de funciones limpias; System 32 modelado en C; 16 escenarios iguales a MAME | 🟡 Prometedor | C + SDL2; cuando esté completo, portable a KOS |
 | **Daytona USA static recomp** | Arranca | 🟠 ~27 fps | Ya en rama `naomi` |
+| **Daytona USA nativo** (`platform/dreamcast-native`) | Completo en Dreamcast (60 fps) | 🟡 Compilado para NAOMI | Rama `naomi-native`; ROM `daytona93` + programa de sonido del set padre `daytona` |
 | **Scud Race** (wanszai) | Port desde decompilación, solo Windows/Xbox | 🔴 de momento | Repositorio muy reciente; sin licencia clara |
 | **Ridge Racer Collection / Sega Rally** (wanszai) | PC/Xbox | 🔴 de momento | Pensado para PC; demasiado para SH-4 sin reescribir el render |
 | **namco22-decompile** | En curso | 🔴 | Rave Racer, Dirt Dash, Tokyo Wars, Prop Cycle |
@@ -244,7 +248,7 @@ LBA originales; análisis completo en el HANDOFF de dc2naomi.
 4. **FBA 2012** para la familia Sega (Turbo OutRun, Super Monaco GP) y **mame2003** para
    Pole Position.
 5. **Cargador Dreamcast → NAOMI** para recopilatorios y ports (Wipeout, Mario Kart 64).
-6. Seguir **OutRunners decomp** y la **recomp de Daytona** (optimizar i960/TGP).
+6. Seguir **OutRunners decomp**; probar en placa el **Daytona nativo** (rama `naomi-native`) y, si funciona, ofrecer `NATIVE_NAOMI` al proyecto original.
 
 ## 8.1 Parches de controles
 
