@@ -18,6 +18,7 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 | [dreamcast-cannonball](https://github.com/0skarzer0/dreamcast-cannonball/tree/naomi) (rama `naomi`) | Cannonball (OutRun) para NAOMI | [naomi/HANDOFF.md](https://github.com/0skarzer0/dreamcast-cannonball/blob/naomi/naomi/HANDOFF.md) |
 | [daytona-arcade-recomp](https://github.com/0skarzer0/daytona-arcade-recomp/tree/naomi) (rama `naomi`) | Recompilación de Daytona USA (Model 2) para NAOMI | [platform/dreamcast/HANDOFF.md](https://github.com/0skarzer0/daytona-arcade-recomp/blob/naomi/platform/dreamcast/HANDOFF.md) |
 | [dc2naomi](https://github.com/0skarzer0/dc2naomi) | Cargador de juegos de Dreamcast en NAOMI (experimental) | [HANDOFF.md](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md) |
+| [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches) | Parches de controles (IPS) para juegos NAOMI / NAOMI 2 / Atomiswave en el mueble Crazy Taxi | [HANDOFF.md](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md) |
 
 ### Cómo retomar el trabajo en un chat nuevo (personas o IAs)
 
@@ -33,7 +34,7 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 - Probar dc2naomi con Yu Suzuki Game Works.
 - **Estándar de controles común** para todos los juegos del mueble: hoy freno + START = crédito en MAME4ALL y = menú en Cannonball.
 - Daytona recomp: en carrera va a ~13 fps y baja a 5–8 con muchos coches (medido con el cronómetro del juego). Issue publicado en el repositorio de alphanu1 (2026-11-05): esperar respuesta.
-- Jambo! Safari: parche para usar el lazo con la palanca del Crazy Taxi sin tocar cableado (después, el resto de juegos NAOMI / NAOMI 2 / Atomiswave). Se publicarán solo los parches, nunca las ROMs.
+- Jambo! Safari: **parche hecho** ([naomi-ct-patches/jambo-safari](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari)) para lanzar el lazo con la palanca del Crazy Taxi sin tocar cableado; verificado en intérprete SH-4, **falta probarlo en placa** (variante cruzada; si el sentido sale al revés, la directa). Después, el resto de juegos NAOMI / NAOMI 2 / Atomiswave con el mismo procedimiento ([naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches)).
 - dc2naomi: **Yu Suzuki Game Works Vol. 1** preparado como banco de pruebas (imagen de 201 MB con el disco
   original, parches verificados); falta compilar el loader con KallistiOS y probar en Flycast / placa.
 
@@ -62,7 +63,7 @@ Consecuencias para los juegos:
 
 | Nivel | Qué significa | Juegos |
 |---|---|---|
-| ✅ **Funciona ya** | Arranca por netboot hoy | Crazy Taxi, Jambo! Safari, 18 Wheeler, juegos NAOMI 2 (Club Kart, King of Route 66, Wild Riders), Atomiswave convertidos (Maximum Speed, Faster Than Speed), **Cannonball (OutRun)** |
+| ✅ **Funciona ya** | Arranca por netboot hoy | Crazy Taxi, Jambo! Safari (lazo con parche), 18 Wheeler, juegos NAOMI 2 (Club Kart, King of Route 66, Wild Riders), Atomiswave convertidos (Maximum Speed, Faster Than Speed), **Cannonball (OutRun)** |
 | ⚠️ **Hecho, lento en placa** | En Flycast a 60; en placa ~46 fps y cuelgues | **Hang-On** y **Konami GT** (MAME4ALL portado) |
 | 🟢 **Fácil** | Mismo port MAME4ALL, solo hay que añadir el driver | Super Hang-On, Enduro Racer, Spy Hunter, Max RPM, Turbo, Sprint 2, Super Sprint, Arkanoid… |
 | 🟡 **Medio** | Requiere portar otra versión de MAME/FBA o un port nativo | Pole Position, Super Off Road, Turbo OutRun, Power Drift, Super Monaco GP, OutRunners (decomp) |
@@ -78,7 +79,7 @@ Consecuencias para los juegos:
 | Juego | Controles originales | En mueble Crazy Taxi | Notas |
 |---|---|---|---|
 | **Crazy Taxi** | Volante, 2 pedales, palanca D/R | ✅ Perfecto | Es el juego del mueble |
-| **Jambo! Safari** | Volante, palanca, pedales | ✅ Perfecto | Mismo conjunto de volante que Crazy Taxi |
+| **Jambo! Safari** | Volante, palanca, pedales | ⚠️ Con parche | Mismo volante que Crazy Taxi, pero lee la palanca en las entradas del J2: sin el [parche de controles](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari) no se lanza el lazo |
 | **18 Wheeler: American Pro Trucker** (STD/DX) | Volante con force feedback, palanca de 3 posiciones (low/high/reverse), 2 pedales | ✅ Jugable | Volante con distinto tope (≈320°), se juega bien |
 | **Wave Runner GP** | Manillar de moto acuática | ✅ Jugable | El manillar es analógico como un volante |
 | **Ferrari F355 Challenge** (twin/deluxe) / **F355 Challenge 2** | Volante, 3 pedales, palanca de 6 velocidades (o levas) | ⚠️ Comprobar | El deluxe usa 3 placas/3 monitores; probar la versión twin/1 pantalla y el cambio automático |
@@ -244,6 +245,12 @@ LBA originales; análisis completo en el HANDOFF de dc2naomi.
    Pole Position.
 5. **Cargador Dreamcast → NAOMI** para recopilatorios y ports (Wipeout, Mario Kart 64).
 6. Seguir **OutRunners decomp** y la **recomp de Daytona** (optimizar i960/TGP).
+
+## 8.1 Parches de controles
+
+Algunos juegos nativos esperan la palanca o los botones en otros pines que el mueble Crazy Taxi. En vez
+de recablear, se parchea el código del juego. Todo está en el repositorio [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches):
+tabla por juego, procedimiento y herramientas (`apply_patch.py`, desensamblador e intérprete SH-4).
 
 ## 9. Estructura del repositorio propuesta
 
