@@ -35,7 +35,7 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 - Probar dc2naomi con Yu Suzuki Game Works.
 - **Estándar de controles común** para todos los juegos del mueble: hoy freno + START = crédito en MAME4ALL y = menú en Cannonball.
 - Daytona recomp: en carrera va a ~13 fps y baja a 5–8 con muchos coches (medido con el cronómetro del juego). Issue [#62](https://github.com/alphanu1/daytona-arcade-recomp/issues/62) en el repositorio de alphanu1 (2026-11-05); respuesta del autor: probar el **nuevo port nativo** (`platform/dreamcast-native`, 60 fps en Dreamcast).
-- **Daytona nativo en NAOMI** (rama `naomi-native`, 2026-11-05): compilado, imagen `.bin.gz` de 22,6 MB lista para el WiPi; **pendiente de probar en placa** (arranque a 60 fps, sonido, controles, guardado en SRAM 0x6000-0x7FFF). Lista de pruebas en su HANDOFF.
+- **Daytona nativo en NAOMI** (rama `naomi-native`, 2026-11-05): **probado en placa (2026-11-06): controles, gráficos y música perfectos**; faltaban las voces del locutor (selección de pista y cambio, «Gentlemen start your engines», «Time extended»): segunda imagen con las voces, pendiente de probar. Falta también comprobar el guardado en SRAM (0x6000-0x7FFF).
 - Jambo! Safari: ✅ **resuelto con parche** ([naomi-ct-patches/jambo-safari](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari)): el lazo se lanza con la palanca del Crazy Taxi sin tocar cableado (variante cruzada, probada en placa). Siguiente: el resto de juegos NAOMI / NAOMI 2 / Atomiswave con el mismo procedimiento ([naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches)).
 - dc2naomi: **Yu Suzuki Game Works Vol. 1** preparado como banco de pruebas (imagen de 201 MB con el disco
   original, parches verificados); falta compilar el loader con KallistiOS y probar en Flycast / placa.
@@ -122,7 +122,7 @@ de netboot de DragonMinded.
 | **MAME4ALL Hang-On** | ⚠️ Lento en placa | Placa: 47/16; Flycast: 60 / 41–55 | Controles OK; cuelgue en etapa 1 |
 | **MAME4ALL Konami GT** | ⚠️ Lento en placa | Placa: 46/13; Flycast: 60 | Controles OK; sonido malo; cuelgue |
 | **Daytona USA recomp** (rama `naomi`) | 🟠 Arranca | ~27 fps | Limitado por CPU (i960 ≈19 ms, TGP ≈7 ms por frame); sustituido por el port nativo |
-| **Daytona USA nativo** (rama `naomi-native`) | 🧪 Compilado | 60 fps en Dreamcast (placa: por medir) | El juego reescrito en C (dfchil/alphanu1), idéntico al original; assets desde la NetDIMM, JVS, SRAM |
+| **Daytona USA nativo** (rama `naomi-native`) | ✅ Funciona (voces en prueba) | Fluido en placa | El juego reescrito en C (dfchil/alphanu1), idéntico al original; assets desde la NetDIMM, JVS, SRAM |
 | **Daytona USA 2001** (DC → NAOMI) | 🔴 Parado | — | Pantalla negra; el cargador de juegos de Dreamcast en NAOMI no está resuelto |
 | **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | 🧪 Flycast OK | — | Menú y Power Drift jugables en Flycast (NAOMI); pendiente de placa |
 
