@@ -33,7 +33,7 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 - Probar dc2naomi con Yu Suzuki Game Works.
 - **Estándar de controles común** para todos los juegos del mueble: hoy freno + START = crédito en MAME4ALL y = menú en Cannonball.
 - Daytona recomp: en carrera va a ~13 fps y baja a 5–8 con muchos coches (medido con el cronómetro del juego). Issue publicado en el repositorio de alphanu1 (2026-11-05): esperar respuesta.
-- Jambo! Safari: parche para usar el lazo con la palanca del Crazy Taxi sin tocar cableado (después, el resto de juegos NAOMI / NAOMI 2 / Atomiswave). Se publicarán solo los parches, nunca las ROMs.
+- Jambo! Safari: **parche hecho** ([patches/jambo-safari](patches/jambo-safari/)) para lanzar el lazo con la palanca del Crazy Taxi sin tocar cableado; verificado en intérprete SH-4, **falta probarlo en placa** (variante cruzada; si el sentido sale al revés, la directa). Después, el resto de juegos NAOMI / NAOMI 2 / Atomiswave con el mismo procedimiento ([patches/README.md](patches/README.md)).
 - dc2naomi: **Yu Suzuki Game Works Vol. 1** preparado como banco de pruebas (imagen de 201 MB con el disco
   original, parches verificados); falta compilar el loader con KallistiOS y probar en Flycast / placa.
 
@@ -62,7 +62,7 @@ Consecuencias para los juegos:
 
 | Nivel | Qué significa | Juegos |
 |---|---|---|
-| ✅ **Funciona ya** | Arranca por netboot hoy | Crazy Taxi, Jambo! Safari, 18 Wheeler, juegos NAOMI 2 (Club Kart, King of Route 66, Wild Riders), Atomiswave convertidos (Maximum Speed, Faster Than Speed), **Cannonball (OutRun)** |
+| ✅ **Funciona ya** | Arranca por netboot hoy | Crazy Taxi, Jambo! Safari (lazo con parche), 18 Wheeler, juegos NAOMI 2 (Club Kart, King of Route 66, Wild Riders), Atomiswave convertidos (Maximum Speed, Faster Than Speed), **Cannonball (OutRun)** |
 | ⚠️ **Hecho, lento en placa** | En Flycast a 60; en placa ~46 fps y cuelgues | **Hang-On** y **Konami GT** (MAME4ALL portado) |
 | 🟢 **Fácil** | Mismo port MAME4ALL, solo hay que añadir el driver | Super Hang-On, Enduro Racer, Spy Hunter, Max RPM, Turbo, Sprint 2, Super Sprint, Arkanoid… |
 | 🟡 **Medio** | Requiere portar otra versión de MAME/FBA o un port nativo | Pole Position, Super Off Road, Turbo OutRun, Power Drift, Super Monaco GP, OutRunners (decomp) |
@@ -78,7 +78,7 @@ Consecuencias para los juegos:
 | Juego | Controles originales | En mueble Crazy Taxi | Notas |
 |---|---|---|---|
 | **Crazy Taxi** | Volante, 2 pedales, palanca D/R | ✅ Perfecto | Es el juego del mueble |
-| **Jambo! Safari** | Volante, palanca, pedales | ✅ Perfecto | Mismo conjunto de volante que Crazy Taxi |
+| **Jambo! Safari** | Volante, palanca, pedales | ⚠️ Con parche | Mismo volante que Crazy Taxi, pero lee la palanca en las entradas del J2: sin el [parche de controles](patches/jambo-safari/) no se lanza el lazo |
 | **18 Wheeler: American Pro Trucker** (STD/DX) | Volante con force feedback, palanca de 3 posiciones (low/high/reverse), 2 pedales | ✅ Jugable | Volante con distinto tope (≈320°), se juega bien |
 | **Wave Runner GP** | Manillar de moto acuática | ✅ Jugable | El manillar es analógico como un volante |
 | **Ferrari F355 Challenge** (twin/deluxe) / **F355 Challenge 2** | Volante, 3 pedales, palanca de 6 velocidades (o levas) | ⚠️ Comprobar | El deluxe usa 3 placas/3 monitores; probar la versión twin/1 pantalla y el cambio automático |
@@ -245,6 +245,12 @@ LBA originales; análisis completo en el HANDOFF de dc2naomi.
 5. **Cargador Dreamcast → NAOMI** para recopilatorios y ports (Wipeout, Mario Kart 64).
 6. Seguir **OutRunners decomp** y la **recomp de Daytona** (optimizar i960/TGP).
 
+## 8.1 Parches de controles
+
+Algunos juegos nativos esperan la palanca o los botones en otros pines que el mueble Crazy Taxi. En vez
+de recablear, se parchea el código del juego: [patches/README.md](patches/README.md) tiene la tabla
+por juego, el procedimiento y las herramientas (`apply_patch.py`, desensamblador e intérprete SH-4).
+
 ## 9. Estructura del repositorio propuesta
 
 ```
@@ -259,6 +265,10 @@ naomi-wheel-games/
 ├── tools/
 │   ├── romzip.py          ← reempaquetado de romsets por CRC32
 │   └── make_romsinfo.py   ← genera líneas de romsinfo.csv para WiPi
+├── patches/               ← parches de controles por juego (IPS + scripts, sin ROMs)
+│   ├── apply_patch.py
+│   ├── tools/             ← sh4dis.py, sh4mini.py
+│   └── jambo-safari/
 └── flycast-patches/       ← parches para probar MIE/JVS en Flycast
 ```
 
