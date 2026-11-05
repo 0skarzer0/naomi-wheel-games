@@ -32,9 +32,8 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 - Probar el nuevo control de Cannonball (START al soltar, START + R = vista).
 - Probar dc2naomi con Yu Suzuki Game Works.
 - **Estándar de controles común** para todos los juegos del mueble: hoy freno + START = crédito en MAME4ALL y = menú en Cannonball.
-- Daytona recomp: diagnosticar los parones a 1–2 fps (se pasará un vídeo).
+- Daytona recomp: en carrera va a ~13 fps y baja a 5–8 con muchos coches (medido con el cronómetro del juego). Issue publicado en el repositorio de alphanu1 (2026-11-05): esperar respuesta.
 - Jambo! Safari: parche para usar el lazo con la palanca del Crazy Taxi sin tocar cableado (después, el resto de juegos NAOMI / NAOMI 2 / Atomiswave). Se publicarán solo los parches, nunca las ROMs.
-- Publicar el issue con el informe de Daytona en el repositorio de alphanu1.
 - dc2naomi: **Yu Suzuki Game Works Vol. 1** preparado como banco de pruebas (imagen de 201 MB con el disco
   original, parches verificados); falta compilar el loader con KallistiOS y probar en Flycast / placa.
 
