@@ -237,6 +237,9 @@ casi el mismo (SH-4 + PowerVR2 + AICA). Lo que cambia es el arranque (cabecera N
 Todos dependen de que el cargador de juegos de Dreamcast en NAOMI funcione (falló con Daytona 2001).
 **Yu Suzuki Game Works** es ahora el banco de pruebas: 204 MB de ficheros, cabe en la NetDIMM con sus
 LBA originales; análisis completo en el HANDOFF de dc2naomi.
+**Namco Museum** (5,7 MB) es el segundo banco de pruebas: funciona en Flycast; en la placa se congela al arrancar
+el sonido (sospechoso: la espera del bit 5 de `SB_FFST` de Shinobi 1.43).
+Qué cambió SEGA entre el Crazy Taxi de Dreamcast y el de NAOMI: [docs/crazy-taxi-dreamcast-vs-naomi.md](docs/crazy-taxi-dreamcast-vs-naomi.md).
 
 ---
 
