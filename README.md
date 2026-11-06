@@ -21,6 +21,8 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 | [dc2naomi](https://github.com/0skarzer0/dc2naomi) | Cargador de juegos de Dreamcast en NAOMI (experimental) | [HANDOFF.md](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md) |
 | [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches) | Parches de controles (IPS) para juegos NAOMI / NAOMI 2 / Atomiswave en el mueble Crazy Taxi | [HANDOFF.md](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md) |
 
+**Hardware del mueble, valores JVS de volante y pedales y trampas del hardware real:** [docs/hardware.md](docs/hardware.md).
+
 ### Cómo retomar el trabajo en un chat nuevo (personas o IAs)
 
 1. Lee este README para la visión general.
