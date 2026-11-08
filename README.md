@@ -41,7 +41,9 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 - Jambo! Safari: ✅ **resuelto con parche** ([naomi-ct-patches/jambo-safari](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari)): el lazo se lanza con la palanca del Crazy Taxi sin tocar cableado (variante cruzada, probada en placa). Siguiente: el resto de juegos NAOMI / NAOMI 2 / Atomiswave con el mismo procedimiento ([naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches)).
 - dc2naomi (2026-11-08): **Virtua Tennis de Dreamcast arranca en la placa real** (hasta "No VMU found"): el cargador
   funciona. Ikaruga, YSGW y Namco Museum se paran en placa; en Ikaruga se ha visto que la **DMA G2 hacia el AICA
-  (sonido) no termina nunca en la NAOMI**. Imagen `ikaruga_g2cpu` (copia por CPU en vez de DMA) pendiente de probar.
+  (sonido) no termina nunca en la NAOMI**. Virtua Athlete 2000 (mismo código de DMA que su versión NAOMI) también se
+  para: el bloqueo parece del entorno del cargador, no de los juegos. Siguiente: criba de los juegos de coches de
+  Dreamcast (¿sonido por CPU o por DMA G2?) antes de seguir.
   Todo el detalle en el [HANDOFF de dc2naomi](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md).
 
 ---
