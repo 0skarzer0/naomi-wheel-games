@@ -46,6 +46,9 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
   negro tras el logo de SEGA, aunque varios usan el mismo sonido por CPU que Virtua Tennis (la hipótesis del sonido no
   bastaba). CT2 diag llegó 1 de 6 veces a la pantalla de VMU: fallo intermitente sin explicar. Midway Vol. 2 y Sega
   Rally 2 son Windows CE y ni siquiera arrancan en Flycast. Pistas sin hacer en el HANDOFF.
+  **Alternativa (2026-11-08): [DreamShell](https://github.com/DC-SWAT/DreamShell) 4.0.4 arranca GD-ROMs de Dreamcast en
+  NAOMI desde SD o IDE, con volante y pedales por JVS (firmware propio de la MIE).** Necesita su BIOS HollySH y un
+  adaptador SD/IDE; detalles en el HANDOFF de dc2naomi.
   Todo el detalle en el [HANDOFF de dc2naomi](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md).
 
 ---
