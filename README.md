@@ -39,8 +39,10 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 - Daytona recomp: en carrera va a ~13 fps y baja a 5–8 con muchos coches (medido con el cronómetro del juego). Issue [#62](https://github.com/alphanu1/daytona-arcade-recomp/issues/62) en el repositorio de alphanu1 (2026-11-05); respuesta del autor: probar el **nuevo port nativo** (`platform/dreamcast-native`, 60 fps en Dreamcast).
 - **Daytona nativo en NAOMI** (rama `naomi-native`, 2026-11-05): **probado en placa (2026-11-06): controles, gráficos y música perfectos**; faltaban las voces del locutor (selección de pista y cambio, «Gentlemen start your engines», «Time extended»): segunda imagen con las voces, pendiente de probar. Falta también comprobar el guardado en SRAM (0x6000-0x7FFF).
 - Jambo! Safari: ✅ **resuelto con parche** ([naomi-ct-patches/jambo-safari](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari)): el lazo se lanza con la palanca del Crazy Taxi sin tocar cableado (variante cruzada, probada en placa). Siguiente: el resto de juegos NAOMI / NAOMI 2 / Atomiswave con el mismo procedimiento ([naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches)).
-- dc2naomi: **Yu Suzuki Game Works Vol. 1** preparado como banco de pruebas (imagen de 201 MB con el disco
-  original, parches verificados); falta compilar el loader con KallistiOS y probar en Flycast / placa.
+- dc2naomi (2026-11-08): **Virtua Tennis de Dreamcast arranca en la placa real** (hasta "No VMU found"): el cargador
+  funciona. Ikaruga, YSGW y Namco Museum se paran en placa; en Ikaruga se ha visto que la **DMA G2 hacia el AICA
+  (sonido) no termina nunca en la NAOMI**. Imagen `ikaruga_g2cpu` (copia por CPU en vez de DMA) pendiente de probar.
+  Todo el detalle en el [HANDOFF de dc2naomi](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md).
 
 ---
 
@@ -126,7 +128,9 @@ de netboot de DragonMinded.
 | **Daytona USA recomp** (rama `naomi`) | 🟠 Arranca | ~27 fps | Limitado por CPU (i960 ≈19 ms, TGP ≈7 ms por frame); sustituido por el port nativo |
 | **Daytona USA nativo** (rama `naomi-native`) | ✅ Funciona (voces en prueba) | Gráficos, música y controles perfectos en placa (fps por medir) | El juego reescrito en C (dfchil/alphanu1), idéntico al original; assets desde la NetDIMM, JVS, SRAM |
 | **Daytona USA 2001** (DC → NAOMI) | 🔴 Parado | — | Pantalla negra; el cargador de juegos de Dreamcast en NAOMI no está resuelto |
-| **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | 🧪 Flycast OK | — | Menú y Power Drift jugables en Flycast (NAOMI); pendiente de placa |
+| **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | 🧪 Flycast OK | — | Menú y Power Drift jugables en Flycast (NAOMI); en placa, negro tras la licencia |
+| **Virtua Tennis** (DC → NAOMI) | ✅ Arranca en placa | — | Primer juego de Dreamcast que arranca en la placa real (dc2naomi, 2026-11-08); faltan los mandos |
+| **Ikaruga** (DC → NAOMI) | 🧪 Flycast OK | — | En placa se atasca en la DMA G2 del sonido; prueba sin DMA pendiente |
 
 ### 4.1 Arquitectura del port MAME4ALL → NAOMI (lo que ya existe)
 
@@ -234,11 +238,13 @@ casi el mismo (SH-4 + PowerVR2 + AICA). Lo que cambia es el arranque (cabecera N
 | **Midway's Greatest Arcade Hits Vol. 2** | Spy Hunter, 720° |
 | Atari Anniversary Edition | Sin juegos de coches |
 
-Todos dependen de que el cargador de juegos de Dreamcast en NAOMI funcione (falló con Daytona 2001).
+Todos dependen de que el cargador de juegos de Dreamcast en NAOMI funcione. **Ya arranca un juego en placa
+(Virtua Tennis, 2026-11-08)**; los que suben el sonido por DMA G2 (Ikaruga, probablemente Namco Museum) se paran,
+porque esa DMA no termina en la NAOMI.
 **Yu Suzuki Game Works** es ahora el banco de pruebas: 204 MB de ficheros, cabe en la NetDIMM con sus
 LBA originales; análisis completo en el HANDOFF de dc2naomi.
 **Namco Museum** (5,7 MB) es el segundo banco de pruebas: funciona en Flycast; en la placa se congela al arrancar
-el sonido (sospechoso: la espera del bit 5 de `SB_FFST` de Shinobi 1.43).
+el sonido (sospechoso: la DMA G2 del AICA, como Ikaruga; antes se sospechó del bit 5 de `SB_FFST`).
 Qué cambió SEGA entre el Crazy Taxi de Dreamcast y el de NAOMI: [docs/crazy-taxi-dreamcast-vs-naomi.md](docs/crazy-taxi-dreamcast-vs-naomi.md).
 
 ---
