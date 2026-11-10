@@ -34,21 +34,17 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 
 - MAME4ALL en placa real: Hang-On 47/16 fps y Konami GT 46/13 fps (en Flycast iban a 60), sonido malo y cuelgues (posiblemente con el contador de FPS activo); controles perfectos. Diagnosticar (ver HANDOFF de mame4all-naomi).
 - Probar el nuevo control de Cannonball (START al soltar, START + R = vista).
-- Probar dc2naomi con Yu Suzuki Game Works.
 - **Estándar de controles común** para todos los juegos del mueble: hoy freno + START = crédito en MAME4ALL y = menú en Cannonball.
 - Daytona recomp: en carrera va a ~13 fps y baja a 5–8 con muchos coches (medido con el cronómetro del juego). Issue [#62](https://github.com/alphanu1/daytona-arcade-recomp/issues/62) en el repositorio de alphanu1 (2026-11-05); respuesta del autor: probar el **nuevo port nativo** (`platform/dreamcast-native`, 60 fps en Dreamcast).
 - **Daytona nativo en NAOMI** (rama `naomi-native`, 2026-11-05): **probado en placa (2026-11-06): controles, gráficos y música perfectos**; faltaban las voces del locutor (selección de pista y cambio, «Gentlemen start your engines», «Time extended»): segunda imagen con las voces, pendiente de probar. Falta también comprobar el guardado en SRAM (0x6000-0x7FFF).
 - Jambo! Safari: ✅ **resuelto con parche** ([naomi-ct-patches/jambo-safari](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari)): el lazo se lanza con la palanca del Crazy Taxi sin tocar cableado (variante cruzada, probada en placa). Siguiente: el resto de juegos NAOMI / NAOMI 2 / Atomiswave con el mismo procedimiento ([naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches)).
-- dc2naomi (2026-11-08) — **proyecto en pausa**. **Virtua Tennis de Dreamcast arranca en la placa real** (hasta
-  "No VMU found"): el cargador, el residente y la NetDIMM funcionan. Ikaruga se atasca en la DMA G2 del AICA (sonido),
-  que no termina nunca en NAOMI; con la copia por CPU (`ikaruga_g2cpu`) avanza más pero sigue en negro. Juegos de
-  coches probados en placa (CT2, Daytona 2001, Yu Suzuki Game Works, Namco Museum, Re-Volt): **ninguno carga**, todos
-  negro tras el logo de SEGA, aunque varios usan el mismo sonido por CPU que Virtua Tennis (la hipótesis del sonido no
-  bastaba). CT2 diag llegó 1 de 6 veces a la pantalla de VMU: fallo intermitente sin explicar. Midway Vol. 2 y Sega
-  Rally 2 son Windows CE y ni siquiera arrancan en Flycast. Pistas sin hacer en el HANDOFF.
-  **Alternativa (2026-11-08): [DreamShell](https://github.com/DC-SWAT/DreamShell) 4.0.4 arranca GD-ROMs de Dreamcast en
-  NAOMI desde SD o IDE, con volante y pedales por JVS (firmware propio de la MIE).** Necesita su BIOS HollySH y un
-  adaptador SD/IDE; detalles en el HANDOFF de dc2naomi.
+- dc2naomi (2026-11-10) — **funciona en placa.** La pantalla negra tras el logo de SEGA era la escritura de `PCTRA`
+  del residente, que en la NAOMI 2 deja sin respuesta al TA (el 3D). Quitada, **funcionan en el mueble Crazy Taxi:
+  Crazy Taxi 2, Namco Museum, Yu Suzuki Game Works y Daytona USA 2001**, e Ikaruga en el mueble estándar. Mandos
+  por juego (volante, pedales, palanca), memoria (VMU) emulada y **guardada en un fichero `.vmu` por juego en la
+  Raspberry del WiPi**: comprobado que Daytona recupera su partida tras cargar otro juego. Programa para Windows
+  (`dc2naomi.exe` / `dc2naomict.exe`, v0.2, sin release todavía). Aparcados: F355, 18 Wheeler, KOF99, Last Blade 2.
+  Siguiente: reconvertir con VMU los juegos hechos sin ella.
   Todo el detalle en el [HANDOFF de dc2naomi](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md).
 
 ---
@@ -134,11 +130,13 @@ de netboot de DragonMinded.
 | **MAME4ALL Konami GT** | ⚠️ Lento en placa | Placa: 46/13; Flycast: 60 | Controles OK; sonido malo; cuelgue |
 | **Daytona USA recomp** (rama `naomi`) | 🟠 Arranca | ~27 fps | Limitado por CPU (i960 ≈19 ms, TGP ≈7 ms por frame); sustituido por el port nativo |
 | **Daytona USA nativo** (rama `naomi-native`) | ✅ Funciona (voces en prueba) | Gráficos, música y controles perfectos en placa (fps por medir) | El juego reescrito en C (dfchil/alphanu1), idéntico al original; assets desde la NetDIMM, JVS, SRAM |
-| **Daytona USA 2001** (DC → NAOMI) | 🔴 Parado | — | Pantalla negra; el cargador de juegos de Dreamcast en NAOMI no está resuelto |
-| **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | 🧪 Flycast OK | — | Menú y Power Drift jugables en Flycast (NAOMI); en placa, negro tras la licencia |
-| **Virtua Tennis** (DC → NAOMI) | ✅ Arranca en placa | — | Primer juego de Dreamcast que arranca en la placa real (dc2naomi, 2026-11-08); faltan los mandos |
-| **Ikaruga** (DC → NAOMI) | ❌ Negro en placa | — | Flycast OK; en placa se atasca en la DMA G2 del sonido; con copia por CPU avanza pero sigue en negro |
-| **Juegos de coches DC** (CT2, Daytona 2001, YSGW, Namco Museum, Re-Volt) | ❌ Negro en placa | — | Negro tras el logo de SEGA; CT2 llega a veces a la pantalla de VMU. Proyecto en pausa |
+| **Daytona USA 2001** (DC → NAOMI) | ✅ Funciona en placa | — | dc2naomi `daytona5`: mandos del mueble y VMU guardada en fichero (comprobado en placa) |
+| **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | ✅ Funciona en placa | — | Los 5 juegos; modo avión para After Burner / Space Harrier. Power Drift: sonido petardea y salir con B da negro |
+| **Virtua Tennis** (DC → NAOMI) | ✅ Arranca en placa | — | Primer juego de Dreamcast que arrancó en la placa real (2026-11-08); faltan los mandos |
+| **Ikaruga** (DC → NAOMI) | ✅ Terminado | — | Mueble estándar (palancas, 6 botones) |
+| **Crazy Taxi 2** (DC → NAOMI) | ✅ Terminado | — | `ct2h7`: volante, pedales, marchas con la palanca, salto con doble toque adelante |
+| **Namco Museum** (DC → NAOMI) | ✅ Terminado | — | `nmus7`: Pole Position con volante, VMU en fichero (comprobado en placa) |
+| **F355, 18 Wheeler** (DC → NAOMI) | ⏸️ Aparcados | — | Flycast OK; en placa "Now Loading" / negro tras SEGA |
 
 ### 4.1 Arquitectura del port MAME4ALL → NAOMI (lo que ya existe)
 
