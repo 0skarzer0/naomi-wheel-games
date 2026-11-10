@@ -43,7 +43,7 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
   Crazy Taxi 2, Namco Museum, Yu Suzuki Game Works y Daytona USA 2001**, e Ikaruga en el mueble estándar. Mandos
   por juego (volante, pedales, palanca), memoria (VMU) emulada y **guardada en un fichero `.vmu` por juego en la
   Raspberry del WiPi**: comprobado que Daytona recupera su partida tras cargar otro juego. Programa para Windows
-  (`dc2naomi.exe` / `dc2naomict.exe`, v0.2, sin release todavía). Aparcados: F355, 18 Wheeler, KOF99, Last Blade 2.
+  (`dc2naomi.exe` / `dc2naomict.exe`, v0.2, sin release todavía). F355 y 18 Wheeler ya funcionan en placa (con VMU). Aparcados: KOF99, Last Blade 2.
   Siguiente: reconvertir con VMU los juegos hechos sin ella.
   Todo el detalle en el [HANDOFF de dc2naomi](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md).
 
@@ -136,7 +136,7 @@ de netboot de DragonMinded.
 | **Ikaruga** (DC → NAOMI) | ✅ Terminado | — | Mueble estándar (palancas, 6 botones) |
 | **Crazy Taxi 2** (DC → NAOMI) | ✅ Terminado | — | `ct2h7`: volante, pedales, marchas con la palanca, salto con doble toque adelante |
 | **Namco Museum** (DC → NAOMI) | ✅ Terminado | — | `nmus7`: Pole Position con volante, VMU en fichero (comprobado en placa) |
-| **F355, 18 Wheeler** (DC → NAOMI) | ⏸️ Aparcados | — | Flycast OK; en placa "Now Loading" / negro tras SEGA |
+| **F355, 18 Wheeler** (DC → NAOMI) | ✅ Funcionan en placa | — | Con VMU en fichero y partida desbloqueada; F355 aún sin música |
 
 ### 4.1 Arquitectura del port MAME4ALL → NAOMI (lo que ya existe)
 
