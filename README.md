@@ -136,7 +136,7 @@ de netboot de DragonMinded.
 | **Ikaruga** (DC → NAOMI) | ✅ Terminado | — | Mueble estándar (palancas, 6 botones) |
 | **Crazy Taxi 2** (DC → NAOMI) | ✅ Terminado | — | `ct2h7`: volante, pedales, marchas con la palanca, salto con doble toque adelante |
 | **Namco Museum** (DC → NAOMI) | ✅ Terminado | — | `nmus7`: Pole Position con volante, VMU en fichero (comprobado en placa) |
-| **F355, 18 Wheeler** (DC → NAOMI) | ✅ Funcionan en placa | — | Con VMU en fichero y partida desbloqueada; F355 aún sin música |
+| **F355, 18 Wheeler** (DC → NAOMI) | ✅ Funcionan en placa | — | Con VMU en fichero y partida desbloqueada; terminados |
 
 ### 4.1 Arquitectura del port MAME4ALL → NAOMI (lo que ya existe)
 
