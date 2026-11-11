@@ -297,3 +297,38 @@ naomi-wheel-games/
 - Las marcas pertenecen a sus propietarios (Sega, Konami, Atari, Namco, Midway, Taito…).
 - Los proyectos de terceros (decompilaciones, Cannonball, MAME, FBA) mantienen sus licencias;
   MAME 0.35/0.37/0.78 y FBA antiguo tienen **licencias no comerciales**.
+
+---
+
+## 11. Agradecimientos
+
+Este proyecto solo adapta al mueble el trabajo de otras personas; todo lo siguiente lo ha hecho posible, de forma
+directa o como inspiración o ayuda indirecta. Si falta alguien, abrid una issue y se añade.
+
+- **alphanu1** ([daytona-arcade-recomp](https://github.com/alphanu1/daytona-arcade-recomp)) y **dfchil**, autor del port
+  nativo de Daytona USA (PR #58) y de [enDjinn](https://github.com/dfchil/enDjinn),
+  [AICAflow](https://github.com/dfchil/aicaflow) y [AICAforge](https://github.com/dfchil/AICAforge). Daytona nativo
+  en NAOMI es su juego funcionando en otra placa. Detalle en el
+  [README de la rama `naomi-native`](https://github.com/0skarzer0/daytona-arcade-recomp/blob/naomi-native/platform/dreamcast-native/naomi/README.md#acknowledgements).
+- **DragonMinded**: [libnaomi](https://github.com/DragonMinded/libnaomi) (lectura por el puerto de cartucho y protocolo
+  de peek / poke de la NetDIMM), las herramientas de netboot (`netdimm.py`, `netdimm_send`) y el repositorio de netboot
+  con `attach_sram`.
+- **El equipo y los colaboradores de KallistiOS**, con su subarquitectura NAOMI y `naomibintool`, base de todos los
+  ports nativos de este proyecto; y los proyectos **GNU binutils, GCC y newlib**, que forman la toolchain `sh-elf`.
+- **El WiPi Netbooter y Piforce / [Piforce-Web](https://github.com/dev-tty0/Piforce-Web)**, que a su vez usan las
+  herramientas Triforce de debugmode: la Raspberry Pi que arranca la placa por red.
+- **Darksoft**, por las conversiones AW2NAOMI de Atomiswave.
+- **Chris White**, autor de **Cannonball** (OutRun), y quien lo llevó a Dreamcast, de donde sale el port a NAOMI.
+- **El equipo de MAME y los autores de MAME4ALL, mame2000, mame2003 y FBA**, base del port de arcades clásicos.
+- **Flycast** y sus colaboradores, el emulador con el que se prueba antes de subirlo a la placa.
+- **gyrovorbis** ([SH4ZAM](https://github.com/gyrovorbis/sh4zam)) y **la comunidad de vgmrips**, cuyo pack de música de
+  Daytona USA (Sega Model 2) es lo que suena en el port.
+- **Los autores de los proyectos de la sección 6** que sirven de referencia o futura base: cheviman (OutRunners decomp),
+  wanszai (Scud Race, Ridge Racer Collection, Sega Rally), namco22-decompile, la decompilación de Ridge Racer (PSX), el
+  port de Wipeout a Dreamcast, mk64-dc, Wave Race 64 DC y la decompilación de Sonic R.
+- **Claude** (Anthropic), a través de Claude Code: la mayor parte del código y la documentación de los ports de este
+  proyecto se ha escrito y depurado con Claude en sesiones con el propietario del mueble, que es quien prueba cada
+  imagen en la placa y aporta las fotos y las mediciones de las que sale cada diagnóstico.
+
+Los nombres que aparecen aquí se conocen por los repositorios y las páginas citadas; las licencias de cada proyecto
+siguen siendo las suyas (sección 10).
