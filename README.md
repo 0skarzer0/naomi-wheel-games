@@ -36,7 +36,7 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 - Probar el nuevo control de Cannonball (START al soltar, START + R = vista).
 - **Estándar de controles común** para todos los juegos del mueble: hoy freno + START = crédito en MAME4ALL y = menú en Cannonball.
 - Daytona recomp: en carrera va a ~13 fps y baja a 5–8 con muchos coches (medido con el cronómetro del juego). Issue [#62](https://github.com/alphanu1/daytona-arcade-recomp/issues/62) en el repositorio de alphanu1 (2026-11-05); respuesta del autor: probar el **nuevo port nativo** (`platform/dreamcast-native`, 60 fps en Dreamcast).
-- **Daytona nativo en NAOMI** (rama `naomi-native`, 2026-11-05): **probado en placa (2026-11-06): controles, gráficos y música perfectos**; faltaban las voces del locutor (selección de pista y cambio, «Gentlemen start your engines», «Time extended»): segunda imagen con las voces, pendiente de probar. Falta también comprobar el guardado en SRAM (0x6000-0x7FFF).
+- **Daytona nativo en NAOMI** (rama `naomi-native`, 2026-11-05): **terminado y medido en placa (2026-11-11)**: 60 fps en demo y en carrera (dibujo 7,7-11,3 ms de los 16,67 disponibles), controles, gráficos, voces y música correctos. La música de Beginner necesitó una copia ADPCM propia (el hueco libre de la RAM del AICA queda fragmentado por las frases del locutor). La imagen contesta a los *peeks* de la NetDIMM: `naomi/live.py` lee fps y log por red desde la Pi.
 - Jambo! Safari: ✅ **resuelto con parche** ([naomi-ct-patches/jambo-safari](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari)): el lazo se lanza con la palanca del Crazy Taxi sin tocar cableado (variante cruzada, probada en placa). Siguiente: el resto de juegos NAOMI / NAOMI 2 / Atomiswave con el mismo procedimiento ([naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches)).
 - dc2naomi (2026-11-10) — **funciona en placa.** La pantalla negra tras el logo de SEGA era la escritura de `PCTRA`
   del residente, que en la NAOMI 2 deja sin respuesta al TA (el 3D). Quitada, **funcionan en el mueble Crazy Taxi:
@@ -129,7 +129,7 @@ de netboot de DragonMinded.
 | **MAME4ALL Hang-On** | ⚠️ Lento en placa | Placa: 47/16; Flycast: 60 / 41–55 | Controles OK; cuelgue en etapa 1 |
 | **MAME4ALL Konami GT** | ⚠️ Lento en placa | Placa: 46/13; Flycast: 60 | Controles OK; sonido malo; cuelgue |
 | **Daytona USA recomp** (rama `naomi`) | 🟠 Arranca | ~27 fps | Limitado por CPU (i960 ≈19 ms, TGP ≈7 ms por frame); sustituido por el port nativo |
-| **Daytona USA nativo** (rama `naomi-native`) | ✅ Funciona (voces en prueba) | Gráficos, música y controles perfectos en placa (fps por medir) | El juego reescrito en C (dfchil/alphanu1), idéntico al original; assets desde la NetDIMM, JVS, SRAM |
+| **Daytona USA nativo** (rama `naomi-native`) | ✅ Funciona | 60 fps en placa (medidos por NetDIMM) | El juego reescrito en C (dfchil/alphanu1), idéntico al original; assets desde la NetDIMM, JVS, SRAM |
 | **Daytona USA 2001** (DC → NAOMI) | ✅ Funciona en placa | — | dc2naomi `daytona5`: mandos del mueble y VMU guardada en fichero (comprobado en placa) |
 | **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | ✅ Funciona en placa | — | Los 5 juegos; modo avión para After Burner / Space Harrier. Power Drift: sonido petardea y salir con B da negro |
 | **Virtua Tennis** (DC → NAOMI) | ✅ Arranca en placa | — | Primer juego de Dreamcast que arrancó en la placa real (2026-11-08); faltan los mandos |
@@ -216,7 +216,7 @@ si se ajusta la sensibilidad.
 | **Cannonball** (OutRun) | Completo | ✅ Hecho | Motor reescrito en C++ |
 | **OutRunners decomp** (cheviman) | ~79 % de funciones limpias; System 32 modelado en C; 16 escenarios iguales a MAME | 🟡 Prometedor | C + SDL2; cuando esté completo, portable a KOS |
 | **Daytona USA static recomp** | Arranca | 🟠 ~27 fps | Ya en rama `naomi` |
-| **Daytona USA nativo** (`platform/dreamcast-native`) | Completo en Dreamcast (60 fps) | 🟡 Compilado para NAOMI | Rama `naomi-native`; ROM `daytona93` + programa de sonido del set padre `daytona` |
+| **Daytona USA nativo** (`platform/dreamcast-native`) | Completo en Dreamcast (60 fps) | ✅ 60 fps en NAOMI 2 | Rama `naomi-native`; ROM `daytona93` + programa de sonido del set padre `daytona` |
 | **Scud Race** (wanszai) | Port desde decompilación, solo Windows/Xbox | 🔴 de momento | Repositorio muy reciente; sin licencia clara |
 | **Ridge Racer Collection / Sega Rally** (wanszai) | PC/Xbox | 🔴 de momento | Pensado para PC; demasiado para SH-4 sin reescribir el render |
 | **namco22-decompile** | En curso | 🔴 | Rave Racer, Dirt Dash, Tokyo Wars, Prop Cycle |
