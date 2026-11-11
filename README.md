@@ -318,7 +318,8 @@ directa o como inspiración o ayuda indirecta. Si falta alguien, abrid una issue
 - **El WiPi Netbooter y Piforce / [Piforce-Web](https://github.com/dev-tty0/Piforce-Web)**, que a su vez usan las
   herramientas Triforce de debugmode: la Raspberry Pi que arranca la placa por red.
 - **Darksoft**, por las conversiones AW2NAOMI de Atomiswave.
-- **Chris White**, autor de **Cannonball** (OutRun), y quien lo llevó a Dreamcast, de donde sale el port a NAOMI.
+- **Chris White**, autor de **Cannonball** (OutRun), y quienes lo portaron a Dreamcast, de donde parte el port a NAOMI
+  ([dreamcast-cannonball](https://github.com/0skarzer0/dreamcast-cannonball)).
 - **El equipo de MAME y los autores de MAME4ALL, mame2000, mame2003 y FBA**, base del port de arcades clásicos.
 - **Flycast** y sus colaboradores, el emulador con el que se prueba antes de subirlo a la placa.
 - **gyrovorbis** ([SH4ZAM](https://github.com/gyrovorbis/sh4zam)) y **la comunidad de vgmrips**, cuyo pack de música de
@@ -326,9 +327,9 @@ directa o como inspiración o ayuda indirecta. Si falta alguien, abrid una issue
 - **Los autores de los proyectos de la sección 6** que sirven de referencia o futura base: cheviman (OutRunners decomp),
   wanszai (Scud Race, Ridge Racer Collection, Sega Rally), namco22-decompile, la decompilación de Ridge Racer (PSX), el
   port de Wipeout a Dreamcast, mk64-dc, Wave Race 64 DC y la decompilación de Sonic R.
-- **Claude** (Anthropic), a través de Claude Code: la mayor parte del código y la documentación de los ports de este
-  proyecto se ha escrito y depurado con Claude en sesiones con el propietario del mueble, que es quien prueba cada
-  imagen en la placa y aporta las fotos y las mediciones de las que sale cada diagnóstico.
+- **Claude** (Anthropic), a través de Claude Code: el código y la documentación de los ports de este proyecto se han
+  escrito y depurado con Claude en sesiones con el propietario del mueble, que es quien prueba cada imagen en la placa
+  y aporta las fotos y las mediciones de las que sale cada diagnóstico.
 
 Los nombres que aparecen aquí se conocen por los repositorios y las páginas citadas; las licencias de cada proyecto
 siguen siendo las suyas (sección 10).
