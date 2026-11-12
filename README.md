@@ -133,7 +133,7 @@ de netboot de DragonMinded.
 | **Daytona USA 2001** (DC → NAOMI) | ✅ Funciona en placa | — | dc2naomi `daytona5`: mandos del mueble y VMU guardada en fichero (comprobado en placa) |
 | **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | ✅ Funciona en placa | — | Los 5 juegos; modo avión para After Burner / Space Harrier. Power Drift: sonido petardea y salir con B da negro |
 | **Virtua Tennis** (DC → NAOMI) | ✅ Arranca en placa | — | Primer juego de Dreamcast que arrancó en la placa real (2026-11-08); faltan los mandos |
-| **Ikaruga** (DC → NAOMI) | ✅ Terminado | — | Mueble estándar (palancas, 6 botones) |
+| **Ikaruga** (DC → NAOMI) | ✅ Terminado | — | Mueble estándar (palancas, 6 botones); con VMU en fichero y partida desbloqueada (probado en placa) |
 | **Crazy Taxi 2** (DC → NAOMI) | ✅ Terminado | — | `ct2h7`: volante, pedales, marchas con la palanca, salto con doble toque adelante |
 | **Namco Museum** (DC → NAOMI) | ✅ Terminado | — | `nmus7`: Pole Position con volante, VMU en fichero (comprobado en placa) |
 | **F355, 18 Wheeler** (DC → NAOMI) | ✅ Funcionan en placa | — | Con VMU en fichero y partida desbloqueada; terminados |
