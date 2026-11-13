@@ -58,7 +58,7 @@ actual está en el [README](../README.md) y en [pi60-juegos.md](pi60-juegos.md);
   tal cual (mezcla por píxel al estilo de MAME, ~21 M instrucciones x86 por fotograma) no cabe: hay que dibujar con
   la PowerVR2. OutRunners usa poco del chip: capas TEXT, NBG0 y NBG2, ~56 sprites por fotograma, sin sombras ni
   ventanas. El FM no toca notas, así que el sonido se reduce al MultiPCM, que pasará al AICA.
-  Estudio, mediciones y plan por fases: [docs/outrunners.md](outrunners.md). **Fase 2 en la placa** (2026-11-13):
+  Estudio, mediciones y plan por fases: [estudio de OutRunners](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md). **Fase 2 en la placa** (2026-11-13):
   render PowerVR2 a 60 fps en attract y casi toda la carrera; sonido en el AICA (fase 3) hecho, sin probar aún.
 
 ## Hoja de ruta de la primera semana (2026-11-04)
@@ -75,4 +75,4 @@ funciona; OutRunners y Daytona nativo, en placa).
 4. **FBA 2012** para la familia Sega (Turbo OutRun, Super Monaco GP) y **mame2003** para
    Pole Position.
 5. **Cargador Dreamcast → NAOMI** para recopilatorios y ports (Wipeout, Mario Kart 64).
-6. **Portar OutRunners** ([docs/outrunners.md](outrunners.md): arranque y medida en placa, render PVR2, sonido en el AICA); probar en placa el **Daytona nativo** (rama `naomi-native`) y, si funciona, ofrecer `NATIVE_NAOMI` al proyecto original.
+6. **Portar OutRunners** ([estudio de OutRunners](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md): arranque y medida en placa, render PVR2, sonido en el AICA); probar en placa el **Daytona nativo** (rama `naomi-native`) y, si funciona, ofrecer `NATIVE_NAOMI` al proyecto original.

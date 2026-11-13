@@ -73,7 +73,7 @@ si se ajusta la sensibilidad.
 | Proyecto | Estado | ¿Viable en NAOMI? | Comentario |
 |---|---|---|---|
 | **Cannonball** (OutRun) | Completo | ✅ Hecho | Motor reescrito en C++ |
-| **OutRunners port** (cheviman) | Port nativo en C sobre su descompilación; 16 escenarios iguales a MAME | 🧪 En curso | Imagen por la PowerVR2 a 60 fps en placa (2026-11-13); sonido en el AICA sin probar. [outrunners.md](outrunners.md) |
+| **OutRunners port** (cheviman) | Port nativo en C sobre su descompilación; 16 escenarios iguales a MAME | 🧪 En curso | Imagen por la PowerVR2 a 60 fps en placa (2026-11-13); sonido en el AICA sin probar. [estudio](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md) |
 | **Daytona USA static recomp** | Arranca | 🟠 ~27 fps | Rama `naomi`; aparcado por el port nativo |
 | **Daytona USA nativo** (`platform/dreamcast-native`) | Completo en Dreamcast (60 fps) | ✅ 60 fps en NAOMI 2 | Rama `naomi-native`; ROM `daytona93` + programa de sonido del set padre `daytona` |
 | **Scud Race** (wanszai) | Port desde decompilación, solo Windows/Xbox | 🔴 de momento | Repositorio muy reciente; sin licencia clara |

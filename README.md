@@ -26,7 +26,7 @@ tool builds images from the user's own dumps. The documents are in Spanish; the 
 | [dc2naomi](https://github.com/0skarzer0/dc2naomi) | Cargador de juegos de Dreamcast en NAOMI (experimental) | [HANDOFF.md](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md) |
 | [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches) | Parches de controles (IPS) para juegos NAOMI / NAOMI 2 / Atomiswave en el mueble Crazy Taxi, y lector de tarjetas virtual (Initial D) | [HANDOFF.md](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md) |
 | [model1-naomi](https://github.com/0skarzer0/model1-naomi) | Virtua Racing (Sega Model 1) en NAOMI: estudio de viabilidad | [HANDOFF.md](https://github.com/0skarzer0/model1-naomi/blob/main/HANDOFF.md) |
-| [outrunners-port](https://github.com/0skarzer0/outrunners-port/tree/naomi) (rama `naomi`) | **OutRunners** para NAOMI: fork de [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port); el port en `ports/naomi/` | [outrunners/HANDOFF.md](outrunners/HANDOFF.md) (aquí: estudio, herramientas de la Pi, toolchain) |
+| [outrunners-port](https://github.com/0skarzer0/outrunners-port/tree/naomi) (rama `naomi`) | **OutRunners** para NAOMI: fork de [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port); el port en `ports/naomi/` | [ports/naomi/HANDOFF.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/HANDOFF.md) (y el estudio: [ports/naomi/docs/study.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md)) |
 | [naomi-kit](https://github.com/0skarzer0/naomi-kit) | Librería común de los ports nativos a NAOMI: arranque, volante y monedas, ficheros de la NetDIMM, bloque «live», accesos desalineados y scripts de la Pi | [HANDOFF del kit](https://github.com/0skarzer0/naomi-kit/blob/main/HANDOFF.md) |
 
 
@@ -83,7 +83,7 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
   Museum (Pole Position), Daytona USA 2001, F355 Challenge, 18 Wheeler, Sega Rally 2 y los cinco juegos de Yu Suzuki
   Game Works, todos con su VMU guardada en la Raspberry.
 - **En curso:** **OutRunners** (port nativo): imagen por la PowerVR2 a 60 fps en placa; sombras, fundidos exactos,
-  sonido en el AICA y un conversor para Windows hechos y sin probar en placa ([outrunners/HANDOFF.md](outrunners/HANDOFF.md)).
+  sonido en el AICA y un conversor para Windows hechos y sin probar en placa ([HANDOFF](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/HANDOFF.md)).
 - **Subidos, sin probar en placa:** una docena de juegos de Dreamcast convertidos con dc2naomi (Test Drive 6, Star
   Wars Racer, Metropolis Street Racer, SF Rush 2049, Mario Kart 64, la demo de OutRun 2006 de ArkRetro…) y los
   parches de 18 Wheeler e Initial D (con lector de tarjetas virtual, ya arrancando en placa; falta ver que da y graba la
@@ -114,13 +114,12 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
 | [docs/juegos.md](docs/juegos.md) | Catálogo por niveles de dificultad: nativos de NAOMI, ports propios, recopilatorios de Dreamcast, parches |
 | [docs/hardware.md](docs/hardware.md) | El mueble: placa, carga, valores JVS de volante y pedales, trampas del hardware real |
 | [docs/investigacion.md](docs/investigacion.md) | Versiones de MAME/FBA candidatas, arquitectura del port MAME4ALL, decompilaciones y recompilaciones |
-| [docs/outrunners.md](docs/outrunners.md) | Estudio y medidas del port de OutRunners |
 | [docs/crazy-taxi-dreamcast-vs-naomi.md](docs/crazy-taxi-dreamcast-vs-naomi.md) | Qué cambió SEGA entre el Crazy Taxi de Dreamcast y el de NAOMI |
 | [docs/historial.md](docs/historial.md) | Estados y pendientes antiguos, con su fecha |
 
 *Documents (in Spanish):* `pi60-juegos` the state of every game on the cabinet's Raspberry; `juegos` the catalogue by
 difficulty; `hardware` the cabinet's controls and JVS values; `investigacion` candidate emulators and ports;
-`outrunners` the OutRunners study; `crazy-taxi-dreamcast-vs-naomi` what changed between the two Crazy Taxis;
+`crazy-taxi-dreamcast-vs-naomi` what changed between the two Crazy Taxis;
 `historial` old states, dated. Start with this README and a repo's `HANDOFF.md`.
 
 ## Contenido del repositorio
@@ -130,11 +129,11 @@ naomi-wheel-games/
 ├── README.md        ← este documento
 ├── CONTRIBUTING.md  ← cómo añadir un juego o documentar
 ├── .github/         ← comprobación de enlaces
-├── docs/            ← la documentación de arriba
-└── outrunners/      ← OutRunners: HANDOFF, toolchain, herramientas de la Pi y del estudio (el código, en su fork)
+└── docs/            ← la documentación de arriba
 ```
 
-El código de los demás proyectos está en sus repositorios (tabla de arriba).
+El código, el HANDOFF y los estudios de cada proyecto están en su repositorio (tabla de arriba); OutRunners incluido
+(se movió a su fork el 2026-11-13).
 
 ## Hardware de referencia
 

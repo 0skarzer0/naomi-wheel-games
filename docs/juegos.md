@@ -68,7 +68,7 @@ de netboot de DragonMinded.
 | **Coches de Dreamcast por lotes** (DC → NAOMI) | 🧪 Subidos, sin probar en placa | — | Test Drive 6, TD Le Mans, Wacky Races, Jeremy McGrath Supercross 2000, Star Wars Racer, Demolition Racer, TNN Hardcore Heat, Tokyo Xtreme Racer 2, Metropolis Street Racer, SF Rush 2049: mandos del mueble y VMU desbloqueada; los que no cabían en 512 MB, con vídeos recodificados o audio a mono |
 | **OutRun 2006 Coast 2 Coast**, demo de ArkRetro (homebrew de DC → NAOMI) | 🧪 Subida, sin probar en placa | — | v37 (2026-11-12): llega al título y a la demo en Flycast; cabe en 512 MB con 4 de sus 28 canciones largas (las demás suenan como una de esas cuatro) |
 | **Super Sprint** (MAME4ALL) | ✅ Funciona en placa | 60 fps | T11 recompilado estáticamente; volante como volante giratorio |
-| **OutRunners** (port nativo de cheviman/outrunners-port) | 🧪 En curso | 60 fps en placa (imagen) | Imagen por la PowerVR2 probada en placa; sombras, fundidos y sonido en el AICA hechos y sin probar. [outrunners.md](outrunners.md) |
+| **OutRunners** (port nativo de cheviman/outrunners-port) | 🧪 En curso | 60 fps en placa (imagen) | Imagen por la PowerVR2 probada en placa; sombras, fundidos y sonido en el AICA hechos y sin probar. [estudio](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md) |
 | **Virtua Tennis** (DC → NAOMI) | ✅ Arranca en placa | — | Primer juego de Dreamcast que arrancó en la placa real (2026-11-08); faltan los mandos |
 | **Ikaruga** (DC → NAOMI) | ✅ Terminado | — | Mueble estándar (palancas, 6 botones); con VMU en fichero y partida desbloqueada (probado en placa) |
 | **Crazy Taxi 2** (DC → NAOMI) | ✅ Terminado | — | `ct2h7`: volante, pedales, marchas con la palanca, salto con doble toque adelante |
