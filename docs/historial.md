@@ -4,6 +4,12 @@ Estados y pendientes fechados que ya no describen el presente; se guardan porque
 actual está en el [README](../README.md) y en [pi60-juegos.md](pi60-juegos.md); el detalle de cada port, en su
 `HANDOFF.md`.
 
+## 2026-11-13 (tarde): reorganización
+
+- Nace [naomi-kit](https://github.com/0skarzer0/naomi-kit) y OutRunners pasa a usarlo; la recompilación de Daytona para
+  Dreamcast se marca sin mantenimiento y se elimina de la rama `naomi-native` (el nativo ya funciona en placa).
+- Se añaden CONTRIBUTING, el mapa de repos, la tabla de estado y la propuesta de controles comunes.
+
 ## Estado a 2026-11-13 (copia del README de ese día)
 
 - **dc2naomi (juegos de Dreamcast en la NAOMI):** funcionan en el mueble, probados en placa, **Crazy Taxi 2, Namco

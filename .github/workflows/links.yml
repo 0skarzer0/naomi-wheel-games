@@ -1,0 +1,15 @@
+name: links
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1"
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --accept 200,206,429 --exclude '192\.168\.' --exclude '10\.0\.0\.' '**/*.md'
+          fail: true

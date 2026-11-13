@@ -21,7 +21,7 @@ tool builds images from the user's own dumps. The documents are in Spanish; the 
 |---|---|---|
 | [mame4all-naomi](https://github.com/0skarzer0/mame4all-naomi) | MAME4ALL (MAME 0.35) para NAOMI: Hang-On, Konami GT… | [HANDOFF.md](https://github.com/0skarzer0/mame4all-naomi/blob/naomi/HANDOFF.md) |
 | [dreamcast-cannonball](https://github.com/0skarzer0/dreamcast-cannonball/tree/naomi) (rama `naomi`) | Cannonball (OutRun) para NAOMI | [naomi/HANDOFF.md](https://github.com/0skarzer0/dreamcast-cannonball/blob/naomi/naomi/HANDOFF.md) |
-| [daytona-arcade-recomp](https://github.com/0skarzer0/daytona-arcade-recomp/tree/naomi) (rama `naomi`) | Recompilación de Daytona USA (Model 2) para NAOMI | [platform/dreamcast/HANDOFF.md](https://github.com/0skarzer0/daytona-arcade-recomp/blob/naomi/platform/dreamcast/HANDOFF.md) |
+| [daytona-arcade-recomp](https://github.com/0skarzer0/daytona-arcade-recomp/tree/naomi) (rama `naomi`) | *Histórico, sin mantenimiento:* recompilación de Daytona USA (Model 2) para NAOMI; la sustituyó el port nativo (fila siguiente), que ya funciona. En la rama `naomi-native` esa carpeta se eliminó (último commit que la tiene: `b9fda30`) | [platform/dreamcast/HANDOFF.md](https://github.com/0skarzer0/daytona-arcade-recomp/blob/naomi/platform/dreamcast/HANDOFF.md) |
 | [daytona-arcade-recomp](https://github.com/0skarzer0/daytona-arcade-recomp/tree/naomi-native) (rama `naomi-native`) | **Port nativo** de Daytona USA (reescrito en C para SH-4, PR #58 del original) para NAOMI | [platform/dreamcast-native/naomi/HANDOFF.md](https://github.com/0skarzer0/daytona-arcade-recomp/blob/naomi-native/platform/dreamcast-native/naomi/HANDOFF.md) |
 | [dc2naomi](https://github.com/0skarzer0/dc2naomi) | Cargador de juegos de Dreamcast en NAOMI (experimental) | [HANDOFF.md](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md) |
 | [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches) | Parches de controles (IPS) para juegos NAOMI / NAOMI 2 / Atomiswave en el mueble Crazy Taxi, y lector de tarjetas virtual (Initial D) | [HANDOFF.md](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md) |
@@ -30,8 +30,43 @@ tool builds images from the user's own dumps. The documents are in Spanish; the 
 | [naomi-kit](https://github.com/0skarzer0/naomi-kit) | Librería común de los ports nativos a NAOMI: arranque, volante y monedas, ficheros de la NetDIMM, bloque «live», accesos desalineados y scripts de la Pi | [HANDOFF del kit](https://github.com/0skarzer0/naomi-kit/blob/main/HANDOFF.md) |
 
 
+### Cómo encaja todo
+
+```mermaid
+flowchart LR
+    kit["naomi-kit<br/>arranque, controles, NetDIMM,<br/>live, scripts de la Pi"]
+    kit --> day["Daytona USA nativo<br/>(daytona-arcade-recomp, naomi-native)"]
+    kit --> orun["OutRunners<br/>(outrunners-port, naomi)"]
+    kit -.-> next["próximos ports"]
+    cb["Cannonball (OutRun)"] --- m4["MAME4ALL"] --- dc2["dc2naomi<br/>juegos de Dreamcast"]
+    patches["naomi-ct-patches<br/>controles de juegos originales"]
+    wheel(["naomi-wheel-games<br/>(este repo): índice, estado, estudios"]) -.-> kit
+    wheel -.-> cb
+    wheel -.-> dc2
+    wheel -.-> patches
+```
+
+Daytona nativo y OutRunners son los que están o estarán sobre `naomi-kit` (OutRunners ya lo usa; Daytona nativo
+sigue con su copia del código, pendiente de pasarlo). Los demás son proyectos independientes.
+
+### Estado de un vistazo
+
+| Juego | Estado | Notas |
+|---|---|---|
+| Juegos originales NAOMI / NAOMI 2 / Atomiswave | ✅ | [docs/pi60-juegos.md](docs/pi60-juegos.md) |
+| Daytona USA nativo | ✅ 60 fps | |
+| Cannonball (OutRun) | ✅ 60 fps | |
+| Super Sprint (MAME4ALL) | ✅ 60 fps | |
+| Juegos de Dreamcast con dc2naomi | ✅ varios · 🧪 otros | ver «Estado» |
+| OutRunners | 🧪 | imagen a ~60 fps; sonido, sombras y START=moneda sin probar en placa |
+| Hang-On, Konami GT (MAME4ALL) | ⚠️ | ~46 fps y cuelgues |
+| Virtua Racing (model1-naomi) | estudio | nada jugable |
+
+✅ funciona en placa · 🧪 subido, sin probar · ⚠️ con problemas.
+
 ### Cómo retomar el trabajo en un chat nuevo (personas o IAs)
 
+0. Para añadir un juego o colaborar: [CONTRIBUTING.md](CONTRIBUTING.md).
 1. Lee este README para la visión general.
 2. Lee el `HANDOFF.md` del repositorio en el que vas a trabajar: estado, arquitectura, direcciones,
    cómo compilar y siguientes pasos.
@@ -59,7 +94,8 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
 
 1. **OutRunners:** probar en placa la imagen con sonido, sombras y fundidos; luego el conversor para Windows.
 2. **Probar en placa** los juegos de Dreamcast convertidos que faltan y los parches de 18 Wheeler e Initial D.
-3. **Estándar de controles común** para todos los juegos del mueble (moneda, START, vista, menú): hoy cada port lo
+3. **Estándar de controles común** para todos los juegos del mueble (moneda, START, vista, menú): hay una
+   [propuesta](https://github.com/0skarzer0/naomi-kit/blob/main/docs/controls.md); hoy cada port lo
    resuelve a su manera (OutRunners: START = moneda; MAME4ALL: freno + START = crédito; Cannonball: freno + START = menú).
 4. **MAME4ALL:** Hang-On y Konami GT lentos en placa; añadir los drivers fáciles de [docs/juegos.md](docs/juegos.md)
    (Super Hang-On, Enduro Racer, Spy Hunter, Turbo, Arkanoid…).
@@ -78,11 +114,18 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
 | [docs/crazy-taxi-dreamcast-vs-naomi.md](docs/crazy-taxi-dreamcast-vs-naomi.md) | Qué cambió SEGA entre el Crazy Taxi de Dreamcast y el de NAOMI |
 | [docs/historial.md](docs/historial.md) | Estados y pendientes antiguos, con su fecha |
 
+*Documents (in Spanish):* `pi60-juegos` the state of every game on the cabinet's Raspberry; `juegos` the catalogue by
+difficulty; `hardware` the cabinet's controls and JVS values; `investigacion` candidate emulators and ports;
+`outrunners` the OutRunners study; `crazy-taxi-dreamcast-vs-naomi` what changed between the two Crazy Taxis;
+`historial` old states, dated. Start with this README and a repo's `HANDOFF.md`.
+
 ## Contenido del repositorio
 
 ```
 naomi-wheel-games/
 ├── README.md        ← este documento
+├── CONTRIBUTING.md  ← cómo añadir un juego o documentar
+├── .github/         ← comprobación de enlaces
 ├── docs/            ← la documentación de arriba
 └── outrunners/      ← OutRunners: HANDOFF, toolchain, herramientas de la Pi y del estudio (el código, en su fork)
 ```
@@ -108,7 +151,8 @@ Detalle, valores medidos y consecuencias para cada tipo de juego: [docs/hardware
 - Las marcas pertenecen a sus propietarios (Sega, Konami, Atari, Namco, Midway, Taito…). OutRunners es una
   marca de SEGA; ningún proyecto de aquí está afiliado a SEGA ni respaldado por ella.
 - Los proyectos de terceros (decompilaciones, Cannonball, MAME, FBA) mantienen sus licencias;
-  MAME 0.35/0.37/0.78 y FBA antiguo tienen **licencias no comerciales**.
+  MAME 0.35/0.37/0.78 y FBA antiguo tienen **licencias no comerciales**: **no se pueden vender ni incluir en un
+  producto de pago**, y quien redistribuya un port basado en ellos debe respetarlo y conservar sus avisos.
 
 ---
 
