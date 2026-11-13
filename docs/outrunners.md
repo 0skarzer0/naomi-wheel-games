@@ -1,10 +1,10 @@
 # OutRunners (Sega System Multi 32) en NAOMI: estudio y plan del port
 
-Estado (2026-11-13, mañana): **fase 1 compilada, sin probar en placa.** Hay imagen de netboot (`orunners_naomi.bin.gz`,
-8,1 MB) generada con el ROM del propietario; el código está en [`outrunners/naomi-port.patch`](../outrunners/naomi-port.patch)
-hasta que exista el fork (sección 3). Antes de eso: **estudio hecho.** El juego de PC corre aquí con el ROM del propietario y se ha
-medido qué cuesta cada parte y qué usa del chip de vídeo. Conclusión: **factible**, con el vídeo reescrito para la
-PowerVR2. La lógica del juego y el programa de sonido caben de sobra en el SH-4.
+Estado (2026-11-13, 10:15): **fase 1 funcionando en la placa** (NAOMI 2 del mueble Crazy Taxi, subida y seguida por
+la NetDIMM desde la Pi .60). La lógica del juego y el sonido van a **~57–60 fps** (juego ~8 ms y sonido ~2,9 ms por
+fotograma); el vídeo por software tarda **~360 ms por fotograma**, así que la imagen solo sirve de prueba y la fase 2
+(render PVR2) es lo que falta. Código: [`outrunners/naomi-port.patch`](../outrunners/naomi-port.patch) (hasta que
+exista el fork); detalle técnico en `ports/naomi/README.md` del parche.
 
 Base: [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port) (BSD-3-Clause, Sebastian Toyos), port
 nativo en C hecho sobre su descompilación [outrunners-decomp](https://github.com/cheviman/outrunners-decomp).
@@ -87,7 +87,7 @@ dreamcast-cannonball (pendiente de crear; mientras, `git am outrunners/naomi-por
 (JVS/MIE), `naomi_dimmfs.c` (ficheros en el DIMM), `naomi_dimmcomms.c` + `live.py` (*peeks* desde la Pi para medir
 en placa), `naomi_log.c`, `naomi_save.c` (EEPROM) y `naomi_pack.py` (imagen `.bin.gz`).
 
-### Fase 1 — arranque y medida en placa (compilada el 2026-11-13, sin probar en placa)
+### Fase 1 — arranque y medida en placa (funciona en la placa desde el 2026-11-13)
 - `ports/naomi/`: bucle principal con KOS (`KOS_SUBARCH=naomi`), lógica del juego y Z80 con los timers del YM3438
   (sin síntesis FM). Vídeo provisional: el `video.c` actual a 1 de cada N fotogramas, solo para ver algo.
 - Entradas JVS → `s32_inputs`: volante (analógico 0), gas (1), freno (2) con la calibración de
@@ -107,12 +107,35 @@ Hecho (en `ports/naomi/` del parche):
 - `naomi_dimmfs`, `naomi_dimmcomms` (peeks), anillo de consola y `naomi_pack.py`, de Daytona nativo.
 - Compila y enlaza con sh-elf-gcc 15.2.0 y KOS `368a2eb9` (NAOMI): 646 KB de código y 4,9 MB de datos estáticos.
 
-**Para probar en el mueble:** subir `orunners_naomi.bin.gz` a la Pi del mueble Crazy Taxi (`/boot/roms/`, por
-ejemplo como `h-outrunners_naomi.bin.gz`, con su fila en `romsinfo.csv`) y, con el juego en marcha, desde la Pi:
-`python3 live.py 10.0.0.4 0x8c0bef84 fps 60` (la dirección es la de esta compilación). Qué mirar: si arranca y se ve
-el attract (a ~15 fps de pantalla, a saltos), si `game` llega a 60 fps, los µs de `game`, `sound` y `video`, y si
-volante, pedales y monedas aparecen en la columna de entradas. Si se cuelga, la pantalla muestra la consola con el
-pc y el pr del hilo principal.
+**En el mueble (2026-11-13):** `h-outrunners_naomi.bin.gz` en `/boot/roms/` de la Pi .60, con su fila
+"OutRunners (prueba)" en `romsinfo.csv` (copia previa: `romsinfo.csv.bak-2026-11-13-outrunners`). `live.py`, `watch.py`
+y `profile.py` del parche, copiados en `/sbin/piforce/` como `outrunners_live.py`, `or_watch.py` y `or_profile.py`.
+Se envía con `dc2naomi_send.py 10.0.0.4 /boot/roms/h-outrunners_naomi.bin.gz`.
+
+Medido en la placa (attract, un fotograma dibujado de cada 60):
+
+| Parte | Tiempo por fotograma |
+|---|---:|
+| Lógica del juego, placa e interrupciones | ~8 ms |
+| Programa de sonido y chips (MultiPCM por software, FM apagado) | ~2,9 ms |
+| `video.c` + copia a pantalla | ~360 ms (unos 22 fotogramas) |
+
+Lo que hubo que arreglar, encontrado con las lecturas de memoria (peeks):
+1. **Pantalla negra:** KallistiOS para un hilo cuyo puntero de pila queda por debajo de la base de su pila ("Thread
+   stack underrun"). Las tareas del juego tenían pilas propias reservadas con malloc, por debajo de la pila del hilo
+   principal, y el juego moría en el primer cambio de hilo. Ahora el juego corre en un hilo propio cuya pila contiene
+   las de las tareas.
+2. **Divisiones de 64 bits** en las conversiones de tiempo de la placa de sonido: una quinta parte de la CPU. Ahora
+   son divisiones exactas de 32 bits.
+3. **Síntesis FM** de un chip que no toca notas, hashes de prueba del sonido y borrado de sprites de la pantalla que
+   no se ve: apagados en la NAOMI. Comprobado en PC: el estado del juego y el vídeo dan los mismos hashes que la
+   versión normal en 3.501 fotogramas.
+
+Con eso se pasó de unos 27 ms de juego por fotograma a unos 8 ms.
+
+Trampas de las pruebas: una lectura sin respuesta deja la NetDIMM ocupada hasta un minuto (los envíos siguientes
+fallan: hay que esperar a que `info()` responda); y la copia del workspace de Claude al ordenador puede entregar una
+versión anterior si se repite el nombre del fichero (cada imagen con nombre nuevo y comprobar el md5).
 
 ### Fase 2 — render PowerVR2 (lo grande)
 - **Páginas de tilemap → texturas** ARGB1555 (512×256 cada una), redibujando solo los tiles que cambian o cuyo banco

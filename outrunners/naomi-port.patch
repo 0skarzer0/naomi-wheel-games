@@ -1,7 +1,7 @@
 From 046476afbf82e3b10901619456ed1847c0a9dae5 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 04:31:49 +0100
-Subject: [PATCH 1/2] NAOMI port, first stage: boot, JVS controls, live figures
+Subject: [PATCH 1/3] NAOMI port, first stage: boot, JVS controls, live figures
 
 ports/naomi: the game, its board and its sound program on a NAOMI's SH-4
 (KallistiOS, KOS_SUBARCH=naomi), the Crazy Taxi upright's wheel, pedals and
@@ -1722,7 +1722,7 @@ index 872e227..76aa7fc 100644
 From 52320d4a428a9457a07d746eee2c7a0e48ee89ae Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 04:44:05 +0100
-Subject: [PATCH 2/2] NAOMI port: no pthreads (workers_none.c); builds and
+Subject: [PATCH 2/3] NAOMI port: no pthreads (workers_none.c); builds and
  links with KOS for KOS_SUBARCH=naomi
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -1792,6 +1792,790 @@ index 0000000..7b61d97
 +{
 +	work(context, first, last);
 +}
+-- 
+2.43.0
+
+
+From 3d5d3349ae774a770c1b47d6550b508b42237d79 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 10:12:23 +0100
+Subject: [PATCH 3/3] NAOMI port runs on the board: game thread with the tasks'
+ stacks, faster sound board
+
+Found on the NAOMI 2 through the NetDIMM: KallistiOS stops a thread whose
+stack pointer is below its stack's base, so the game now runs in a thread
+whose stack holds the tasks' stacks (host_task_area). 64-bit divisions in the
+sound board's time conversions replaced with exact 32-bit ones, FM synthesis
+off (OutRunners plays no FM note), the sound hashes and the hidden screen's
+sprite erase off (ORUNNERS_NAOMI): ~8 ms of game and ~2.9 ms of sound a frame.
+video.c's state from the heap. Exception handler that keeps answering peeks,
+a sampling profiler, watch.py and profile.py, test stages.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016VRYRPP2crYKhAiGSakTbz
+---
+ ports/naomi/Makefile          |  4 +-
+ ports/naomi/README.md         | 45 +++++++++++++++--
+ ports/naomi/live.py           |  2 +-
+ ports/naomi/main.c            | 93 ++++++++++++++++++++++++++++++++---
+ ports/naomi/naomi.h           | 12 ++++-
+ ports/naomi/naomi_dimmcomms.c |  8 +++
+ ports/naomi/naomi_log.c       | 67 +++++++++++++++++++++++--
+ ports/naomi/profile.py        | 20 ++++++++
+ ports/naomi/watch.py          | 32 ++++++++++++
+ runtime/include/host/tasks.h  |  8 +++
+ runtime/include/s32/video.h   |  5 ++
+ runtime/src/sound_chips.c     | 36 ++++++++++++--
+ runtime/src/sound_cpu.c       | 13 +++++
+ runtime/src/tasks.c           | 16 +++++-
+ runtime/src/video.c           | 24 ++++++++-
+ 15 files changed, 359 insertions(+), 26 deletions(-)
+ create mode 100644 ports/naomi/profile.py
+ create mode 100644 ports/naomi/watch.py
+
+diff --git a/ports/naomi/Makefile b/ports/naomi/Makefile
+index 0363a9a..9f0b841 100644
+--- a/ports/naomi/Makefile
++++ b/ports/naomi/Makefile
+@@ -18,8 +18,8 @@ OBJS = main.o naomi_log.o naomi_dimmfs.o naomi_dimmcomms.o workers_none.o \
+ # the game's C reads the work RAM through typed lvalues (game/support.h): no strict aliasing anywhere.
+ # ORUNNERS_PACKED_PENS: the tiles two pens to a byte (naomi_assets.py). Two tasks of about 3.5 KB of stack each
+ # on Linux: 128 KB each is plenty (runtime/src/tasks.c)
+-OUR_CFLAGS = -O2 -fno-strict-aliasing -Wno-stringop-overflow -DORUNNERS_PACKED_PENS -DTASK_STACK_SIZE='(128u << 10)' \
+-	-I$(ROOT)/runtime/include -I$(ROOT)/src -I.
++OUR_CFLAGS = -O2 -fno-strict-aliasing -Wno-stringop-overflow -DORUNNERS_NAOMI -DORUNNERS_NO_FM_SYNTHESIS -DORUNNERS_PACKED_PENS -DORUNNERS_VIDEO_ON_HEAP -DTASK_STACK_SIZE='(128u << 10)' \
++	-I$(ROOT)/runtime/include -I$(ROOT)/src -I. $(EXTRA)
+ 
+ all: $(TARGET)
+ 
+diff --git a/ports/naomi/README.md b/ports/naomi/README.md
+index 986b532..2b8ec42 100644
+--- a/ports/naomi/README.md
++++ b/ports/naomi/README.md
+@@ -8,7 +8,8 @@ Work in progress for a Crazy Taxi upright with a NAOMI 2 and a 512 MB NetDIMM lo
+ 
+ 1. **Boot and measure** (this directory today): the game's C, the board and the sound program on the SH-4; the
+    cabinet's controls through the JVS; `runtime/src/video.c` drawn every few frames into a framebuffer, only to
+-   see something; the time each part takes, read live from the Raspberry (`live.py`). Not yet run on a board.
++   see something; the time each part takes, read live from the Raspberry (`live.py`). **Runs on the board**
++   (2026-11-13, NAOMI 2 of a Crazy Taxi upright): see "Measured on the board".
+ 2. **PowerVR2 renderer** in place of `video.c`: tilemap pages as textures, NBG0 as a scrolled quad, NBG2 a strip a
+    line (row scroll and row select), sprites as quads from a texture cache, priorities as depth, fades.
+ 3. **Sound on the AICA:** the MultiPCM's 4 MB of samples (`orunners.pcm`) in the AICA's RAM, its 28 voices on AICA
+@@ -36,6 +37,37 @@ Checked on a computer (2026-11-13): a build with `ORUNNERS_PACKED_PENS` on the N
+ the normal build on the normal pack (video hashes of 3,501 frames of attract and race, identical). Every C file
+ compiles with sh-elf-gcc 15.2.0 (`-m4-single -ml -O2`): 490 KB of code, 5.8 MB of static data.
+ 
++## Measured on the board (2026-11-13)
++
++Attract mode, a frame drawn every 60 (`live.py draw 60`), after the fixes below:
++
++| Part | Time a frame |
++|---|---:|
++| The game's C, the board, the interrupts | ~8 ms |
++| The sound program and the chips (MultiPCM in software, FM off) | ~2.9 ms |
++| `video.c`'s frame + the copy to the screen | **~360 ms** (about 22 frames) |
++
++So 57-60 game frames a second without the picture, and the software video at about 3 frames a second: the PowerVR2
++renderer (stage 2) is what the port needs, as the computer's measurements said. A profile of the drawn frames:
++`page_pixel`, `scrolled_pixel`, `zoomed_pixel`, `mix_rows`, the sprites' rows, and 32-bit divisions inside them.
++
++What it took to run (each found with the peeks):
++- **KallistiOS stops a thread whose stack pointer is below its stack's base** ("Thread stack underrun", checked at
++  every switch). The game's tasks run on stacks of their own; malloc'd, they were below the main thread's stack (at
++  the top of RAM), and the game died at its first switch with nothing on the screen. Now the game runs in a thread
++  of its own whose stack (`host_task_area`, runtime/src/tasks.c) holds the tasks' stacks too.
++- **64-bit divisions** (libgcc's, there is no division instruction for them) in the sound board's time conversions
++  took about a fifth of the CPU: replaced with exact 32-bit ones (`ORUNNERS_NAOMI`, sound_chips.c and sound_cpu.c).
++- **The FM synthesis**, for a chip that plays no note in OutRunners: off (`ORUNNERS_NO_FM_SYNTHESIS`; the timers
++  stay). **The sound tests' hashes** and **the sprites' erase for the screen not shown**: off on the NAOMI.
++- `video.c`'s 4 MB of state from the heap (`ORUNNERS_VIDEO_ON_HEAP`).
++Checked on a computer: with `ORUNNERS_NAOMI ORUNNERS_NO_FM_SYNTHESIS ORUNNERS_PACKED_PENS`, the game state and video
++hashes of 3,501 frames of attract and race are the same as the normal build's.
++
++Testing traps: an unanswered peek keeps the NetDIMM busy for up to a minute (sends then time out: wait for
++`info()` to answer); and the Claude workspace's copy to the user's computer can deliver an older file under the same
++staged name (give each image a new name, check its md5).
++
+ ## On the board
+ 
+ The controls (values of the Crazy Taxi upright, widening by themselves): wheel analog 0, gas 1, brake 2; the
+@@ -51,8 +83,15 @@ python3 live.py 10.0.0.4 0x8c...... draw 8     # a frame drawn every 8
+ python3 live.py 10.0.0.4 0x8c...... log        # the console
+ ```
+ 
+-A failure, or no game frame for 10 s, puts the console's last lines on the screen (with the main thread's pc and
+-pr for `sh-elf-addr2line` on `orunners_naomi.elf`).
++A failure, or no game frame for 10 s, puts the console's last lines on the screen (with the game thread's pc and
++pr for `sh-elf-addr2line` on `orunners_naomi.elf`); an exception nothing handles writes its code, pc, pr and address
++to the console and keeps answering peeks (the live block's version becomes 0xdeadXXXX).
++
++More tools for the Raspberry: `watch.py LIVE [ADDR VALUE]` (a poke, then the console's lines as they come, until the
++peeks stop: the last thing said before a crash) and `profile.py LIVE [DRAW_EVERY]` (the game thread's pc sampled by
++a thread of the program, `sh-elf-addr2line -f` names them). Test builds: `make EXTRA=-DORUNNERS_NAOMI_STAGE=N` stops
++`main()` at stage 0 (KallistiOS and the peeks), 1 (the assets read) or 2 (everything ready; waits for a poke of
++`naomi_stop_at`).
+ 
+ ## Credits
+ 
+diff --git a/ports/naomi/live.py b/ports/naomi/live.py
+index ab612a3..f5d8dd7 100644
+--- a/ports/naomi/live.py
++++ b/ports/naomi/live.py
+@@ -9,7 +9,7 @@ After live.py of Daytona USA's native port on the NAOMI (0skarzer0/daytona-arcad
+   fps [N]   one line a second for N seconds (default 30): the game's frames, the frames drawn, and the time of
+             the game's C, of the sound board and of video.c (microseconds)
+   log       the console's ring
+-  draw N    draw a frame every N (1-60): video.c's cost against the game's speed
++  draw N    draw a frame every N (1-600): video.c's cost against the game's speed
+ 
+ Example: python3 live.py 10.0.0.4 0x8c2a1b40 fps 60
+ """
+diff --git a/ports/naomi/main.c b/ports/naomi/main.c
+index d7e5cbf..e276026 100644
+--- a/ports/naomi/main.c
++++ b/ports/naomi/main.c
+@@ -27,6 +27,7 @@
+ #include "s32/video.h"
+ #include "sound/chips.h"
+ #include "game/assets.h"
++#include "host/tasks.h"
+ 
+ #include "naomi.h"
+ #include "naomi_dimmfs.h"
+@@ -37,6 +38,11 @@
+ 
+ KOS_INIT_FLAGS(INIT_DEFAULT);
+ 
++#ifdef ORUNNERS_NAOMI_STAGE
++/* test builds: where main() stops, a variable so that everything after it is linked all the same (pokeable) */
++static volatile int naomi_stop_at = ORUNNERS_NAOMI_STAGE;
++#endif
++
+ #define ASSETS_FILE     "/dimm/orunners_naomi.assets"
+ 
+ /* The board's wheel as MAME has it (ports/sdl2/main.c) */
+@@ -210,7 +216,7 @@ static void choose_drawing(void)
+ 	static uint32_t count;
+ 	uint32_t every = orunners_naomi_live.draw_every;
+ 
+-	if (every < 1 || every > 60)
++	if (every < 1 || every > 600)
+ 		every = 4;
+ 	count++;
+ 	drawing = count % every == 0;
+@@ -259,6 +265,9 @@ static void on_frame_done(void)
+ 	}
+ 	naomi_frames_alive++;
+ 	orunners_naomi_live.frames_total++;
++	if (orunners_naomi_live.frames_total <= 600 && orunners_naomi_live.frames_total % 30 == 1)
++		printf("NAOMI: frame %lu: %lu us (sound %lu, video %lu)\n", (unsigned long)orunners_naomi_live.frames_total,
++			(unsigned long)(now - frame_started), (unsigned long)sound_time, (unsigned long)video_time);
+ 	video_time = sound_time = 0;
+ 	choose_drawing();
+ 
+@@ -277,7 +286,11 @@ static void on_log(const char *message)
+ 	printf("board: %s\n", message);
+ }
+ 
+-/* ---- the assets: the NAOMI's pack from the NetDIMM into main RAM ---- */
++/* ---- the assets: the NAOMI's pack from the NetDIMM into main RAM ----
++
++   (Found on the board, 2026-11-13: an image whose program and .bss end beyond about 0x8c530000 never reaches
++   main(), while the same addresses taken from the heap later are fine; so video.c's 4 MB of state comes from the
++   heap here, ORUNNERS_VIDEO_ON_HEAP) */
+ 
+ static void load_assets(void)
+ {
+@@ -293,8 +306,18 @@ static void load_assets(void)
+ 		(unsigned long)naomi_heap_left());
+ 	if (!(bytes = malloc((size_t)size)))
+ 		naomi_show_log("NO ROOM FOR THE ASSETS");
+-	if (fread(bytes, 1, (size_t)size, input) != (size_t)size)
+-		naomi_show_log("THE ASSETS CANNOT BE READ");
++	/* in pieces: the NetDIMM's peeks share the cartridge port and wait for each piece (naomi_dimmcomms.c) */
++	for (long done = 0; done < size;)
++	{
++		const size_t piece = size - done > (256 << 10) ? (256 << 10) : (size_t)(size - done);
++
++		if (fread(bytes + done, 1, piece, input) != piece)
++			naomi_show_log("THE ASSETS CANNOT BE READ");
++		done += (long)piece;
++		if ((done & ((4 << 20) - 1)) < (256 << 10) || done == size)
++			printf("NAOMI: %ld of %ld bytes read, %lu ms\n", done, size,
++				(unsigned long)(timer_ms_gettime64() - start));
++	}
+ 	fclose(input);
+ 	printf("NAOMI: assets read in %lu ms\n", (unsigned long)(timer_ms_gettime64() - start));
+ 	if ((problem = assets_load_pack_bytes(bytes, (size_t)size)) != NULL)
+@@ -304,23 +327,67 @@ static void load_assets(void)
+ 	}
+ }
+ 
++/* The game runs in a thread of its own whose stack holds the tasks' stacks too (runtime/src/tasks.c): KallistiOS
++   stops a thread whose stack pointer goes below its stack's base, and the main thread's is at the top of RAM */
++static void *game_thread(void *unused)
++{
++	(void)unused;
++	program_run();
++	return NULL;
++}
++
++static void run_game_thread(void)
++{
++	const kthread_attr_t attributes = { .stack_size = host_task_area_size, .stack_ptr = host_task_area,
++		.label = "outrunners" };
++	kthread_t *thread = thd_create_ex(&attributes, game_thread, NULL);
++
++	if (!thread)
++		naomi_show_log("NO THREAD FOR THE GAME");
++	naomi_watch_thread(thread);
++	thd_join(thread, NULL);
++}
++
+ int main(int argc, char **argv)
+ {
+ 	(void)argc;
+ 	(void)argv;
+ 	naomi_boot();
++	naomi_dimmcomms_start();    /* (first: the console can be read through the NetDIMM while the assets load) */
++#if defined(ORUNNERS_NAOMI_STAGE)
++	if (naomi_stop_at == 0)    /* does KallistiOS run, and do the peeks answer? */
++		for (;;)
++		{
++			thd_sleep(1000);
++			naomi_frames_alive++;
++			orunners_naomi_live.frames_total++;
++			printf("NAOMI: stage 0 alive, %lu s, heap left %lu\n", (unsigned long)orunners_naomi_live.frames_total,
++				(unsigned long)naomi_heap_left());
++		}
++#endif
+ 	vid_set_mode(DM_640x480, PM_RGB565);
+ 	vid_clear(0, 0, 0);
+ 	load_assets();
+ 	orunners_naomi_live.heap_left = naomi_heap_left();
+ 	printf("NAOMI: %lu bytes of RAM left\n", (unsigned long)orunners_naomi_live.heap_left);
+-	naomi_dimmcomms_start();
++#if defined(ORUNNERS_NAOMI_STAGE)
++	if (naomi_stop_at == 1)
++	for (;;)
++	{
++		thd_sleep(1000);
++		naomi_frames_alive++;
++		orunners_naomi_live.frames_total++;
++	}
++#endif
+ 
++	if (!s32_video_allocate())
++		naomi_show_log("NO ROOM FOR THE VIDEO");
+ 	s32_board.irq_changed = on_irq_changed;
+ 	s32_board.controls_update = on_controls_update;
+ 	s32_board.log = on_log;
+ 	s32_board.frame_timing = true;
+ 	s32_board.program_at = data_byte_at;
++	printf("NAOMI: %s\n", "s32_init(NULL);");
+ 	s32_init(NULL);
+ 	s32_video_init_graphics(assets_graphics());
+ 	choose_drawing();    /* (one screen at most, the cabinet's: s32_video_show_screens) */
+@@ -328,12 +395,26 @@ int main(int argc, char **argv)
+ 	s32_board.sound_at = assets_sound_data;
+ 	s32_board.sound_byte_at = assets_sound_byte;
+ 	s32_board.pcm_at = assets_pcm_byte;
++	printf("NAOMI: %s\n", "sound_chips_attach();");
+ 	sound_chips_attach();
+ 	sound_cpu_attach();
++	printf("NAOMI: %s\n", "program_reset();");
+ 	program_reset();
+ 	program_frame_done = on_frame_done;
+ 	frame_started = timer_us_gettime64();
+ 	printf("NAOMI: the game starts\n");
+-	program_run();
++#if defined(ORUNNERS_NAOMI_STAGE)
++	if (naomi_stop_at == 2)    /* waits here until poked to anything else (live.py's ADDR of naomi_stop_at) */
++	{
++		printf("NAOMI: stage 2, waiting for a poke at %p\n", (void *)&naomi_stop_at);
++		while (naomi_stop_at == 2)
++		{
++			thd_sleep(100);
++			naomi_frames_alive++;
++		}
++		printf("NAOMI: poked, the game runs\n");
++	}
++#endif
++	run_game_thread();
+ 	naomi_show_log("THE GAME STOPPED");
+ }
+diff --git a/ports/naomi/naomi.h b/ports/naomi/naomi.h
+index cd29299..be6838f 100644
+--- a/ports/naomi/naomi.h
++++ b/ports/naomi/naomi.h
+@@ -33,22 +33,32 @@ typedef struct
+ 	uint32_t log_width;        /* +0x34 */
+ 	uint32_t log_next;         /* +0x38 address of the number of lines written so far */
+ 	uint32_t heap_left;        /* +0x3c bytes above the heap's top after loading */
+-	uint32_t draw_every;       /* +0x40 a frame drawn every this many (pokeable: 1-60) */
++	uint32_t draw_every;       /* +0x40 a frame drawn every this many (pokeable: 1-600) */
+ 	uint32_t inputs;           /* +0x44 wheel | gas << 8 | brake << 16 | port E bits << 24, as the game reads them */
++	uint32_t profile_pcs;      /* +0x48 address of PROFILE_SAMPLES words: the game thread's pc, sampled every ms */
++	uint32_t profile_count;    /* +0x4c samples taken so far (the ring's next index is this modulo its size) */
++	uint32_t profile_size;     /* +0x50 the ring's size in words */
+ } orunners_naomi_live_t;
+ extern volatile orunners_naomi_live_t orunners_naomi_live;
+ 
+ /* main(), first: the console into the ring, the archive in the NetDIMM mounted on /dimm, the watchdog */
+ int naomi_boot(void);
+ 
++/* The thread whose pc and pr the watchdog prints (the game's) */
++#include <kos/thread.h>
++void naomi_watch_thread(kthread_t *thread);
++
+ /* The kept console lines on the screen, for good */
+ void naomi_show_log(const char *why) __attribute__((noreturn));
++/* (also on an exception nothing handles: the code, pc, pr and faulting address first; live version = 0xdeadXXXX) */
+ 
+ /* Main RAM above the heap's top */
+ uint32_t naomi_heap_left(void);
+ 
+ /* The thread that answers the NetDIMM's peeks and pokes */
+ void naomi_dimmcomms_start(void);
++/* Peeks answered in a loop, without threads (after an exception) */
++void naomi_dimmcomms_forever(void) __attribute__((noreturn));
+ 
+ /* The game's frame counter, for the watchdog */
+ extern volatile uint32_t naomi_frames_alive;
+diff --git a/ports/naomi/naomi_dimmcomms.c b/ports/naomi/naomi_dimmcomms.c
+index caefc64..edbd16a 100644
+--- a/ports/naomi/naomi_dimmcomms.c
++++ b/ports/naomi/naomi_dimmcomms.c
+@@ -102,6 +102,14 @@ static void *service(void *unused) {
+     return NULL;
+ }
+ 
++/* After an exception, with no threads: answer peeks for good, so that the console ring can still be read */
++void naomi_dimmcomms_forever(void) {
++    for (;;) {
++        dimm_service();
++        for (volatile int i = 0; i < 20000; i++) { }
++    }
++}
++
+ void naomi_dimmcomms_start(void) {
+     const kthread_attr_t attributes = {.create_detached = true, .stack_size = 4096, .label = "naomi dimm",
+                                        .prio = PRIO_DEFAULT - 1};
+diff --git a/ports/naomi/naomi_log.c b/ports/naomi/naomi_log.c
+index 001d1a2..c77f901 100644
+--- a/ports/naomi/naomi_log.c
++++ b/ports/naomi/naomi_log.c
+@@ -89,7 +89,7 @@ static dbgio_handler_t ring = {
+ 	.read_buffer = ring_read_buffer,
+ };
+ 
+-void naomi_show_log(const char *why)
++static void __attribute__((noreturn)) show_log(const char *why, int in_exception)
+ {
+ 	static char copy[LOG_LINES][LOG_WIDTH];
+ 	unsigned count, pick[SHOW_LINES], n = 0;
+@@ -112,7 +112,29 @@ void naomi_show_log(const char *why)
+ 		printf(" %s\n", line);
+ 	}
+ 	for (;;)
+-		thd_sleep(1000);
++		if (in_exception)
++			continue;
++		else
++			thd_sleep(1000);
++}
++
++void naomi_show_log(const char *why)
++{
++	show_log(why, 0);
++}
++
++/* An exception nothing handles (an address error, an illegal instruction...): where it was, then the console on
++   the screen. Without this KallistiOS prints the registers and stops, and a cabinet shows black */
++static void on_exception(irq_t code, irq_context_t *context, void *data)
++{
++	(void)data;
++	printf("NAOMI EXCEPTION %03lx at pc %08lx pr %08lx, address %08lx, r15 %08lx, thread %s\n",
++		(unsigned long)code, (unsigned long)context->pc, (unsigned long)context->pr,
++		(unsigned long)*(volatile uint32_t *)0xff00000c, (unsigned long)context->r[15],
++		thd_get_current() ? thd_get_current()->label : "?");
++	orunners_naomi_live.version = 0xdead0000u | (uint32_t)code;
++	/* (no screen from here: vid_init waits for interrupts that an exception has off; the peeks instead) */
++	naomi_dimmcomms_forever();
+ }
+ 
+ static void *watchdog(void *unused)
+@@ -134,7 +156,7 @@ static void *watchdog(void *unused)
+ 		}
+ 		if (++still >= (seen ? HANG_S : HANG_FIRST_S))
+ 		{
+-			printf("NAOMI HANG: no game frame for %u s (%lu run), main thread pc %08lx pr %08lx\n", still,
++			printf("NAOMI HANG: no game frame for %u s (%lu run), game thread pc %08lx pr %08lx\n", still,
+ 				(unsigned long)last, main_thread ? (unsigned long)main_thread->context.pc : 0ul,
+ 				main_thread ? (unsigned long)main_thread->context.pr : 0ul);
+ 			naomi_show_log("HANG");
+@@ -143,9 +165,35 @@ static void *watchdog(void *unused)
+ 	return NULL;
+ }
+ 
++void naomi_watch_thread(kthread_t *thread)
++{
++	main_thread = thread;
++}
++
++/* A sampling profiler: every millisecond, where the game's thread was when it was interrupted (its saved pc),
++   into a ring the Raspberry reads (profile.py) and sh-elf-addr2line names */
++#define PROFILE_SAMPLES 4096
++static uint32_t profile_pcs[PROFILE_SAMPLES];
++
++static void *profiler(void *unused)
++{
++	(void)unused;
++	for (;;)
++	{
++		thd_sleep(1);
++		if (main_thread && main_thread != thd_get_current())
++		{
++			profile_pcs[orunners_naomi_live.profile_count % PROFILE_SAMPLES] = main_thread->context.pc;
++			orunners_naomi_live.profile_count++;
++		}
++	}
++	return NULL;
++}
++
+ int naomi_boot(void)
+ {
+-	const kthread_attr_t attributes = { .create_detached = true, .stack_size = 4096, .label = "naomi watchdog" };
++	const kthread_attr_t attributes = { .create_detached = true, .stack_size = 8192, .prio = PRIO_DEFAULT - 2,
++		.label = "naomi watchdog" };    /* (above the game's thread, which never waits) */
+ 	int files;
+ 
+ 	setvbuf(stdout, NULL, _IONBF, 0);
+@@ -154,6 +202,8 @@ int naomi_boot(void)
+ 		dbgio_dev_select("naomi-ring");
+ 	printf("NAOMI: OutRunners, KOS_SUBARCH=naomi\n");
+ 	main_thread = thd_get_current();
++	irq_set_handler(EXC_UNHANDLED_EXC, on_exception, NULL);
++	irq_set_handler(EXC_DOUBLE_FAULT, on_exception, NULL);
+ 	orunners_naomi_live.log_lines = (uint32_t)(uintptr_t)lines;
+ 	orunners_naomi_live.log_count = LOG_LINES;
+ 	orunners_naomi_live.log_width = LOG_WIDTH;
+@@ -164,5 +214,14 @@ int naomi_boot(void)
+ 		naomi_show_log("NO ASSETS IN THE NETDIMM IMAGE (ports/naomi/build_naomi.sh)");
+ 	if (!thd_create_ex(&attributes, watchdog, NULL))
+ 		printf("NAOMI: no watchdog\n");
++	{
++		const kthread_attr_t profiling = { .create_detached = true, .stack_size = 4096, .prio = PRIO_DEFAULT - 3,
++			.label = "naomi profiler" };
++
++		orunners_naomi_live.profile_pcs = (uint32_t)(uintptr_t)profile_pcs;
++		orunners_naomi_live.profile_size = PROFILE_SAMPLES;
++		if (!thd_create_ex(&profiling, profiler, NULL))
++			printf("NAOMI: no profiler\n");
++	}
+ 	return 0;
+ }
+diff --git a/ports/naomi/profile.py b/ports/naomi/profile.py
+new file mode 100644
+index 0000000..05a319f
+--- /dev/null
++++ b/ports/naomi/profile.py
+@@ -0,0 +1,20 @@
++#!/usr/bin/env python3
++"""or_profile.py LIVE_ADDR [DRAW_EVERY]: (set draw_every), wait for a full ring, print its pcs as hex, one a line."""
++import sys, time
++sys.path.append('/sbin/piforce/dm_netboot')
++from netdimm import NetDimm, PeekPokeTypeEnum as T
++d = NetDimm('10.0.0.4')
++off = lambda a: a & 0x01ffffff
++peek = lambda a: d.peek(off(a), T.TYPE_LONG)
++base = int(sys.argv[1], 0)
++if peek(base) != 0x4e55524f:
++    sys.exit('no live block')
++if len(sys.argv) > 2:
++    d.poke(off(base + 0x40), T.TYPE_LONG, int(sys.argv[2]))
++pcs, size = peek(base + 0x48), peek(base + 0x50)
++start = peek(base + 0x4c)
++while peek(base + 0x4c) - start < size:
++    time.sleep(1)
++print('# samples', peek(base + 0x4c), file=sys.stderr)
++for i in range(size):
++    print('%08x' % peek(pcs + 4 * i))
+diff --git a/ports/naomi/watch.py b/ports/naomi/watch.py
+new file mode 100644
+index 0000000..db42e9e
+--- /dev/null
++++ b/ports/naomi/watch.py
+@@ -0,0 +1,32 @@
++#!/usr/bin/env python3
++"""or_watch.py LIVE_ADDR [POKE_ADDR VALUE]: (optionally poke a word), then print the console ring's new lines as
++they come, until the peeks stop answering (the line before is the last thing the program said)."""
++import struct, sys, time
++sys.path.append('/sbin/piforce/dm_netboot')
++from netdimm import NetDimm, PeekPokeTypeEnum as T
++d = NetDimm('10.0.0.4')
++off = lambda a: a & 0x01ffffff
++peek = lambda a: d.peek(off(a), T.TYPE_LONG)
++base = int(sys.argv[1], 0)
++live = [peek(base + 4 * i) for i in range(18)]
++if live[0] != 0x4e55524f:
++    sys.exit('no live block (%08x)' % live[0])
++lines_at, n, w, next_at = live[11], live[12], live[13], live[14]
++seen = peek(next_at) - 1
++def show():
++    global seen
++    written = peek(next_at)
++    for i in range(max(seen + 1, written - n + 1), written + 1):
++        raw = b''.join(struct.pack('<I', peek(lines_at + (i % n) * w + 4 * k)) for k in range(w // 4))
++        line = raw.split(b'\0', 1)[0].decode('ascii', 'replace')
++        if line and i < written:
++            print('%6.1f | %s' % (time.time() - t0, line), flush=True)
++            seen = i
++t0 = time.time()
++show()
++if len(sys.argv) > 3:
++    d.poke(off(int(sys.argv[2], 0)), T.TYPE_LONG, int(sys.argv[3], 0))
++    print('poked', flush=True)
++while time.time() - t0 < 60:
++    show()
++    time.sleep(0.2)
+diff --git a/runtime/include/host/tasks.h b/runtime/include/host/tasks.h
+index 4dc6523..a2449f2 100644
+--- a/runtime/include/host/tasks.h
++++ b/runtime/include/host/tasks.h
+@@ -33,6 +33,14 @@ void host_task_switch(host_task *to);
+ 
+ host_task *host_task_current(void);
+ 
++#if defined(__SH4__) || defined(__sh__)
++#include <stddef.h>
++#include <stdint.h>
++/* The SH-4's (KallistiOS): the stack to give the thread that runs the game, which holds the tasks' stacks too */
++extern uint8_t host_task_area[];
++extern const size_t host_task_area_size;
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/runtime/include/s32/video.h b/runtime/include/s32/video.h
+index 6d7d911..943dd39 100644
+--- a/runtime/include/s32/video.h
++++ b/runtime/include/s32/video.h
+@@ -125,6 +125,11 @@ extern s32_tile_observer s32_video_tile_observer;
+    screen, with its mixer's registers as they are now, without blending or color offsets */
+ uint16_t s32_video_tile_pen_color(int screen, int tilemap, uint16_t color, int pen);
+ 
++#ifdef ORUNNERS_VIDEO_ON_HEAP
++/* The video's state from the heap (built with ORUNNERS_VIDEO_ON_HEAP): before anything else of the video */
++bool s32_video_allocate(void);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/runtime/src/sound_chips.c b/runtime/src/sound_chips.c
+index b54f625..e72b4e2 100644
+--- a/runtime/src/sound_chips.c
++++ b/runtime/src/sound_chips.c
+@@ -61,6 +61,22 @@ static struct
+ 
+ static bool sides_together;    /* sound_chips_join_sides */
+ 
++/* x / d rounded down for d below 65536, with 32-bit divisions only: the SH-4 has no 64-bit division, and libgcc's
++   takes a good part of a frame when called for every sound event (ORUNNERS_NAOMI; exact, the same results) */
++static inline uint64_t divide(uint64_t x, uint32_t d)
++{
++#ifdef ORUNNERS_NAOMI
++	const uint32_t high = (uint32_t)(x >> 32), low = (uint32_t)x;
++	const uint32_t q_high = high / d, r_high = high % d;
++	const uint32_t middle = r_high << 16 | low >> 16, q_middle = middle / d, r_middle = middle % d;
++	const uint32_t bottom = r_middle << 16 | (low & 0xffffu), q_bottom = bottom / d;
++
++	return (uint64_t)q_high << 32 | (uint64_t)q_middle << 16 | q_bottom;
++#else
++	return x / d;
++#endif
++}
++
+ static uint64_t now(void)
+ {
+ 	return sound.override != NO_TIMER ? sound.override : s32_board.sound_cycles;
+@@ -69,7 +85,7 @@ static uint64_t now(void)
+ /* board cycles 'clocks' of the YM3438 (which runs on the Z80's clock) take, rounded up */
+ static uint64_t fm_span(uint64_t clocks)
+ {
+-	return (clocks * S32_CPU_CLOCK + S32_SOUND_CLOCK - 1) / S32_SOUND_CLOCK;
++	return divide(clocks * (S32_CPU_CLOCK / 1000000u) + S32_SOUND_CLOCK / 1000000u - 1, S32_SOUND_CLOCK / 1000000u);
+ }
+ 
+ static void append(sample_buffer *buffer, int32_t first, int32_t second)
+@@ -87,12 +103,17 @@ static void append(sample_buffer *buffer, int32_t first, int32_t second)
+ 
+ static void fm_catch_up(uint64_t time)
+ {
+-	const uint64_t due = (time + FM_PERIOD - 1) / FM_PERIOD;
++	const uint64_t due = divide(time + FM_PERIOD - 1, (uint32_t)FM_PERIOD);
+ 	int32_t out[2];
+ 
+ 	while (sound.fm_samples < due)
+ 	{
++#ifdef ORUNNERS_NO_FM_SYNTHESIS
++		/* (OutRunners plays no FM note, ym3438.c says: the chip's timers are all it uses) */
++		out[0] = out[1] = 0;
++#else
+ 		s32_fm_generate(&sound.fm, out);
++#endif
+ 		append(&sound.fm_buffer, out[0], out[1]);
+ 		sound.fm_samples++;
+ 	}
+@@ -161,7 +182,7 @@ static void fm_write(int offset, uint8_t data)
+ 
+ static void pcm_catch_up(uint64_t time)
+ {
+-	const uint64_t due = (time + PCM_PERIOD - 1) / PCM_PERIOD;
++	const uint64_t due = divide(time + PCM_PERIOD - 1, (uint32_t)PCM_PERIOD);
+ 	int32_t first[256];
+ 	int32_t second[256];
+ 
+@@ -207,6 +228,11 @@ static uint64_t hash_bytes(const void *data, size_t size, uint64_t hash)
+ /* 32-bit samples hashed by their bytes low first, as the PC holds them, on a processor of either order */
+ static uint64_t hash_samples(const int32_t *samples, size_t count, uint64_t hash)
+ {
++#ifdef ORUNNERS_NAOMI
++	(void)samples;
++	(void)count;
++	return hash;    /* (the tests' hashes: not on the board) */
++#endif
+ 	for (size_t index = 0; index < count; index++)
+ 		for (int shift = 0; shift < 32; shift += 8)
+ 			hash = (hash ^ (uint8_t)((uint32_t)samples[index] >> shift)) * 0x100000001b3ull;
+@@ -285,8 +311,8 @@ void sound_chips_end_frame(uint64_t time)
+ 
+ 	fm_catch_up(time);
+ 	pcm_catch_up(time);
+-	hash = take(&sound.fm_buffer, (time + FM_PERIOD - 1) / FM_PERIOD, hash, 0);
+-	sound.frame_hash = take(&sound.pcm_buffer, (time + PCM_PERIOD - 1) / PCM_PERIOD, hash, 1);
++	hash = take(&sound.fm_buffer, divide(time + FM_PERIOD - 1, (uint32_t)FM_PERIOD), hash, 0);
++	sound.frame_hash = take(&sound.pcm_buffer, divide(time + PCM_PERIOD - 1, (uint32_t)PCM_PERIOD), hash, 1);
+ 	mix();
+ }
+ 
+diff --git a/runtime/src/sound_cpu.c b/runtime/src/sound_cpu.c
+index 8769302..9d33b43 100644
+--- a/runtime/src/sound_cpu.c
++++ b/runtime/src/sound_cpu.c
+@@ -35,13 +35,26 @@
+ /* the board's time when the Z80 has run 'cycles' */
+ static uint64_t board_time(uint64_t cycles)
+ {
++#if defined(ORUNNERS_NAOMI) && S32_CPU_CLOCK == 20000000u && S32_SOUND_CLOCK == 8000000u
++	return cycles * 5 >> 1;    /* (the same, without the SH-4's slow 64-bit division) */
++#else
+ 	return cycles * S32_CPU_CLOCK / S32_SOUND_CLOCK;
++#endif
+ }
+ 
+ /* the first Z80 cycle at or after the board's 'time' */
+ static uint64_t z80_time(uint64_t time)
+ {
++#if defined(ORUNNERS_NAOMI) && S32_CPU_CLOCK == 20000000u && S32_SOUND_CLOCK == 8000000u
++	/* (time * 2 + 4) / 5 with 32-bit divisions (sound_chips.c's divide) */
++	const uint64_t x = time * 2 + 4;
++	const uint32_t high = (uint32_t)(x >> 32), low = (uint32_t)x;
++	const uint32_t middle = (high % 5) << 16 | low >> 16, bottom = (middle % 5) << 16 | (low & 0xffffu);
++
++	return (uint64_t)(high / 5) << 32 | (uint64_t)(middle / 5) << 16 | bottom / 5;
++#else
+ 	return (time * S32_SOUND_CLOCK + S32_CPU_CLOCK - 1) / S32_CPU_CLOCK;
++#endif
+ }
+ 
+ /* the sound program's ways in (sound_symbols.txt) */
+diff --git a/runtime/src/tasks.c b/runtime/src/tasks.c
+index 08341f4..5f837b7 100644
+--- a/runtime/src/tasks.c
++++ b/runtime/src/tasks.c
+@@ -187,6 +187,15 @@ void host_task_switch(host_task *to)
+    and macl are kept too. r15 is the stack pointer. Measured on Linux (2026-11-13): two tasks, about 3.5 KB of
+    stack each, so the NAOMI build sets TASK_STACK_SIZE far below the 16 MB of the computers' builds */
+ #define SAVED_WORDS 14    /* fr12-fr15, macl, mach, r8-r14, pr: from the top of the stack down */
++#ifndef TASK_COUNT_MAX
++#define TASK_COUNT_MAX 4    /* (two on Linux, 2026-11-13) */
++#endif
++#define HOST_THREAD_STACK (256u << 10)
++
++/* The game's thread's stack, the tasks' stacks at its bottom (s32/tasks.h's host_task_area) */
++uint8_t host_task_area[TASK_COUNT_MAX * TASK_STACK_SIZE + HOST_THREAD_STACK] __attribute__((aligned(32)));
++const size_t host_task_area_size = sizeof(host_task_area);
++static int tasks_made;
+ 
+ void host_switch_stacks(void **from_stack, void *to_stack) __asm__("host_switch_stacks_sh4");
+ 
+@@ -257,8 +266,11 @@ host_task *host_task_create(void (*start)(void))
+ 	host_task *task = calloc(1, sizeof(*task));
+ 	uint32_t *registers;
+ 
+-	if (task)
+-		task->stack = malloc(TASK_STACK_SIZE);
++	/* (KallistiOS stops a thread whose stack pointer is below its stack's base, "Thread stack underrun", at its
++	   next switch: so the tasks' stacks are carved from host_task_area, the stack the NAOMI port gives the
++	   thread that runs the game, from its bottom up, while that thread's own stack grows down from its top) */
++	if (task && tasks_made < TASK_COUNT_MAX)
++		task->stack = host_task_area + (size_t)tasks_made++ * TASK_STACK_SIZE;
+ 	if (!task || !task->stack)
+ 	{
+ 		fprintf(stderr, "A task could not be created\n");
+diff --git a/runtime/src/video.c b/runtime/src/video.c
+index 76aa7fc..53ee148 100644
+--- a/runtime/src/video.c
++++ b/runtime/src/video.c
+@@ -110,7 +110,7 @@ typedef struct sprite_drawing
+ 	uint16_t table[16];
+ } sprite_drawing;
+ 
+-static struct
++struct video_state
+ {
+ 	s32_graphics graphics;
+ 	uint8_t *image_pens;                    /* s32_video_init's: the tiles' pens taken out of the image */
+@@ -133,7 +133,21 @@ static struct
+ 	int shown_sprites;
+ 	uint32_t frame[S32_SCREENS][HEIGHT][WIDTH];
+ 	clip_runs runs;
+-} video;
++};
++#ifdef ORUNNERS_VIDEO_ON_HEAP
++/* (the NAOMI's: its 4 MB in the heap, not in .bss, ports/naomi/README.md; s32_video_allocate first) */
++static struct video_state *video_heap;
++#define video (*video_heap)
++
++bool s32_video_allocate(void)
++{
++	if (!video_heap)
++		video_heap = calloc(1, sizeof(*video_heap));
++	return video_heap != NULL;
++}
++#else
++static struct video_state video;
++#endif
+ 
+ static const uint16_t transparent_row[WIDTH] = { 0 };
+ 
+@@ -1158,6 +1172,12 @@ void s32_video_sprites(bool erase, bool draw)
+ 		{
+ 			uint16_t *shown = &video.sprites[screen][video.shown_sprites][0][0];
+ 
++#ifdef ORUNNERS_NAOMI
++			/* (a screen not shown is not drawn into either: 220 KB of writes a frame less on the SH-4) */
++			if (!bit((uint32_t)video.screens_shown, screen))
++				continue;
++#endif
++
+ 			for (size_t index = 0; index < (size_t)HEIGHT * WIDTH; index++)
+ 				shown[index] = 0xffff;
+ 			if (video.extra_used)
 -- 
 2.43.0
 
