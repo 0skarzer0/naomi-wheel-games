@@ -85,11 +85,11 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
 - **Funcionan en placa:** los juegos originales de NAOMI / NAOMI 2 / Atomiswave del mueble; **Daytona USA nativo**
   y **Cannonball (OutRun)** a 60 fps; **Super Sprint** (MAME4ALL) a 60 fps; y con **dc2naomi**, Crazy Taxi 2, Namco
   Museum (Pole Position), Daytona USA 2001, F355 Challenge, 18 Wheeler, Sega Rally 2 y los cinco juegos de Yu Suzuki
-  Game Works, todos con su VMU guardada en la Raspberry.
+  Game Works, todos con su VMU guardada en la Raspberry; y **Mario Kart 64** (port de Dreamcast, sin VMU todavía).
 - **En curso:** **OutRunners** (port nativo): imagen por la PowerVR2 a 60 fps en placa; sombras, fundidos exactos,
   sonido en el AICA y un conversor para Windows hechos y sin probar en placa ([HANDOFF](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/HANDOFF.md)).
 - **Subidos, sin probar en placa:** una docena de juegos de Dreamcast convertidos con dc2naomi (Test Drive 6, Star
-  Wars Racer, Metropolis Street Racer, SF Rush 2049, Mario Kart 64, la demo de OutRun 2006 de ArkRetro…) y los
+  Wars Racer, Metropolis Street Racer, SF Rush 2049, la demo de OutRun 2006 de ArkRetro…) y los
   parches de 18 Wheeler e Initial D (con lector de tarjetas virtual, ya arrancando en placa; falta ver que da y graba la
   tarjeta). Los dos cuelgan en el attract con la BIOS multirregión de la placa aunque no estén parcheados ([detalle](docs/pi60-juegos.md)).
 - **Free play y attract sin sonido** puestos en la cabecera de 49 de las 50 imágenes de la Raspberry (2026-11-13).

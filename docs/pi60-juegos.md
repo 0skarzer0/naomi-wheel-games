@@ -68,7 +68,7 @@ port propio, `dc-` juego de Dreamcast convertido con dc2naomi (`_dc2naomict` = m
 | `dc-txr2_dc2naomict` | Tokyo Xtreme Racer 2 (vídeos recodificados) | 🧪 |
 | `dc-msr_dc2naomict` | Metropolis Street Racer (audio a mono) | 🧪 |
 | `dc-rush2049_dc2naomict` / `dc-rush2049_9_dc2naomict` | San Francisco Rush 2049: música en mono / 9 canciones intactas | 🧪 |
-| `dc-mk64_dc2naomict` (+ `mk64dbg`, diagnóstico) | Mario Kart 64 (port homebrew de Dreamcast) | 🧪 |
+| `dc-mk64_dc2naomict` (+ `mk64dbg`, diagnóstico) | Mario Kart 64 (port de Dreamcast compilado con KallistiOS parcheada: [receta](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/mk64)): acelerador = A, freno = B, palanca adelante = salto/derrape, atrás = objeto, volante 2,5 veces más rápido; sin VMU todavía | ✅ (la versión con la palanca cambiada, del 2026-11-13 tarde, está en la carpeta `dc2naomi` del PC: la Pi estaba apagada) |
 | `h-or2006_dc2naomi` | OutRun 2006 Coast 2 Coast, demo de ArkRetro v24 | 🧪 |
 | `h-or37_dc2naomict` | OutRun 2006 Coast 2 Coast, demo de ArkRetro v37: 4 de sus 28 canciones largas (las demás suenan como una de esas cuatro) | 🧪 |
 
