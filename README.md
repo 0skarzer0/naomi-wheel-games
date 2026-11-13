@@ -188,7 +188,10 @@ directa o como inspiración o ayuda indirecta. Si falta alguien, abrid una issue
   Daytona USA (Sega Model 2) es lo que suena en el port.
 - **Los autores de los proyectos de [investigacion.md](docs/investigacion.md)** que sirven de referencia o futura base: cheviman (OutRunners port y su descompilación; Aaron Giles, por ymfm, en el que se basa su YM3438),
   wanszai (Scud Race, Ridge Racer Collection, Sega Rally), namco22-decompile, la decompilación de Ridge Racer (PSX), el
-  port de Wipeout a Dreamcast, mk64-dc, Wave Race 64 DC y la decompilación de Sonic R.
+  port de Wipeout a Dreamcast, Wave Race 64 DC y la decompilación de Sonic R.
+- **[jnmartin84](https://github.com/jnmartin84)** y su [mk64-dc](https://github.com/jnmartin84/mk64-dc), el port de
+  Mario Kart 64 a Dreamcast que juega el mueble, y **el proyecto de decompilación de Mario Kart 64** del que parte. Los
+  demás créditos de esa conversión, en los [agradecimientos de dc2naomi](https://github.com/0skarzer0/dc2naomi#agradecimientos).
 - **Claude** (Anthropic), a través de Claude Code: el código y la documentación de los ports de este proyecto se han
   escrito y depurado con Claude en sesiones con el propietario del mueble, que es quien prueba cada imagen en la placa
   y aporta las fotos y las mediciones de las que sale cada diagnóstico.
@@ -224,6 +227,8 @@ AIs) can reuse the work.
 | [model1-naomi](https://github.com/0skarzer0/model1-naomi) | Virtua Racing (Sega Model 1) on the NAOMI: feasibility study | [HANDOFF.md](https://github.com/0skarzer0/model1-naomi/blob/main/HANDOFF.md) |
 | [outrunners-port](https://github.com/0skarzer0/outrunners-port/tree/naomi) (branch `naomi`) | **OutRunners** for the NAOMI: fork of [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port); the port is in `ports/naomi/` | [ports/naomi/HANDOFF.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/HANDOFF.md) (and the study: [ports/naomi/docs/study.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md)) |
 | [naomi-kit](https://github.com/0skarzer0/naomi-kit) | Shared library of the native NAOMI ports: boot, wheel and coins, NetDIMM files, "live" block, misaligned accesses and Raspberry Pi scripts | [the kit's HANDOFF](https://github.com/0skarzer0/naomi-kit/blob/main/HANDOFF.md) |
+| [naomi-pi-tools](https://github.com/0skarzer0/naomi-pi-tools) | Raspberry Pi and PC scripts: send games, stop the VMU watcher, timehack, `live.py`, add rows to `romsinfo.csv` | [HANDOFF](https://github.com/0skarzer0/naomi-pi-tools/blob/main/HANDOFF.md) |
+| [crazytaxi_cabinet_info](https://github.com/0skarzer0/crazytaxi_cabinet_info) | Documentation of the cabinet only: JVS, wheel and pedal values, traps of the real hardware | [HANDOFF](https://github.com/0skarzer0/crazytaxi_cabinet_info/blob/main/HANDOFF.md) |
 
 Native Daytona and OutRunners are the ones that are or will be built on `naomi-kit` (OutRunners already uses it;
 native Daytona still has its own copy of the code, to be moved over). The others are independent projects.
@@ -365,7 +370,10 @@ inspiration or indirect help. If anyone is missing, open an issue and they will 
 - **The authors of the projects in [investigacion.md](docs/investigacion.md)** that serve as reference or future base:
   cheviman (OutRunners port and its decompilation; Aaron Giles, for ymfm, on which its YM3438 is based), wanszai (Scud
   Race, Ridge Racer Collection, Sega Rally), namco22-decompile, the Ridge Racer (PSX) decompilation, the Wipeout port to
-  the Dreamcast, mk64-dc, Wave Race 64 DC and the Sonic R decompilation.
+  the Dreamcast, Wave Race 64 DC and the Sonic R decompilation.
+- **[jnmartin84](https://github.com/jnmartin84)** and his [mk64-dc](https://github.com/jnmartin84/mk64-dc), the
+  Dreamcast port of Mario Kart 64 played on the cabinet, and **the Mario Kart 64 decompilation project** it comes from.
+  The other credits of that conversion are in [dc2naomi's acknowledgements](https://github.com/0skarzer0/dc2naomi#agradecimientos).
 - **Claude** (Anthropic), through Claude Code: the code and documentation of this project's ports have been written
   and debugged with Claude in sessions with the cabinet's owner, who tests every image on the board and provides the
   photos and measurements each diagnosis comes from.

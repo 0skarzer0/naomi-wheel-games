@@ -83,7 +83,7 @@ si se ajusta la sensibilidad.
 | **namco22-decompile** | En curso | 🔴 | Rave Racer, Dirt Dash, Tokyo Wars, Prop Cycle |
 | **Ridge Racer (PSX) decomp** | 100 % matching + recomp | 🟠 | Habría que portarlo al PVR; posible a largo plazo |
 | **Wipeout (PSX) → Dreamcast** | Port DC a 60 fps | 🟠 | ~172 MB: cabe en el NetDIMM, pero necesita adaptar arranque y entrada NAOMI |
-| **Mario Kart 64 → Dreamcast** (mk64-dc) | ~30 fps | 🧪 | Convertido con dc2naomi, sin probar en placa |
+| **Mario Kart 64 → Dreamcast** ([mk64-dc](https://github.com/jnmartin84/mk64-dc), jnmartin84) | ~30 fps | ✅ | Funciona en placa: compilado con KallistiOS parcheada (`NAOMI_HOST`) y empaquetado con dc2naomi ([receta](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/mk64)) |
 | **Wave Race 64 DC** | En curso | 🟠 | Esperar |
 | **Sonic R decomp** | Port DC planeado | 🟠 | Esperar |
 | **Virtua Racing** | Solo desensamblado de 32X; núcleo FPGA de Model 1 | 🔴 | No hay decompilación del arcade |
@@ -179,7 +179,7 @@ a rotation speed; with 270° of travel they play well if the sensitivity is tune
 | **namco22-decompile** | In progress | 🔴 | Rave Racer, Dirt Dash, Tokyo Wars, Prop Cycle |
 | **Ridge Racer (PSX) decomp** | 100 % matching + recomp | 🟠 | It would have to be ported to the PVR; possible in the long run |
 | **Wipeout (PSX) → Dreamcast** | DC port at 60 fps | 🟠 | ~172 MB: it fits in the NetDIMM, but needs its boot and input adapted to the NAOMI |
-| **Mario Kart 64 → Dreamcast** (mk64-dc) | ~30 fps | 🧪 | Converted with dc2naomi, untested on the board |
+| **Mario Kart 64 → Dreamcast** ([mk64-dc](https://github.com/jnmartin84/mk64-dc), jnmartin84) | ~30 fps | ✅ | Works on the board: built with a patched KallistiOS (`NAOMI_HOST`) and packed with dc2naomi ([recipe](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/mk64)) |
 | **Wave Race 64 DC** | In progress | 🟠 | Wait |
 | **Sonic R decomp** | DC port planned | 🟠 | Wait |
 | **Virtua Racing** | Only a 32X disassembly; Model 1 FPGA core | 🔴 | No decompilation of the arcade game |

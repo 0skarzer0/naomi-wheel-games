@@ -15,7 +15,7 @@ día). Las versiones de MAME/FBA y las decompilaciones candidatas: [investigacio
 | ⚠️ **Hecho, lento en placa** | En Flycast a 60; en placa ~46 fps y cuelgues | **Hang-On** y **Konami GT** (MAME4ALL portado) |
 | 🟢 **Fácil** | Mismo port MAME4ALL, solo hay que añadir el driver | Super Hang-On, Enduro Racer, Spy Hunter, Max RPM, Turbo, Sprint 2, Arkanoid… |
 | 🟡 **Medio** | Requiere portar otra versión de MAME/FBA o un port nativo | Super Off Road, Turbo OutRun, Super Monaco GP (Pole Position y Power Drift ya se juegan por dc2naomi) |
-| 🟠 **Difícil** | Mucho trabajo o rendimiento justo | Wipeout (port de DC), Mario Kart 64 (port de DC, convertido, sin probar en placa) |
+| 🟠 **Difícil** | Mucho trabajo o rendimiento justo | Wipeout (port de DC) |
 | 🔴 **No viable (hoy)** | Hardware demasiado potente o sin código | Model 2/3 emulados (Sega Rally, Scud Race, Daytona 2), Ridge Racer arcade, Virtua Racing arcade, Initial D (tarjetas), Sega Driving Simulator (3 monitores) |
 
 ## Juegos nativos (sin emulación)
@@ -69,6 +69,7 @@ de netboot de DragonMinded.
 | **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | ✅ Funciona en placa | — | Disco entero (`ysgw7`) y **una imagen por juego** (OutRun, Hang-On, Power Drift, After Burner II, Space Harrier), todas probadas en placa. Power Drift: petardeo de la música resuelto. After Burner II: disparo automático, acelerador = gases, freno = misil y luces del arcade en el botón START. Space Harrier: disparo rápido en el acelerador |
 | **Coches de Dreamcast por lotes** (DC → NAOMI) | 🧪 Subidos, sin probar en placa | — | Test Drive 6, TD Le Mans, Wacky Races, Jeremy McGrath Supercross 2000, Star Wars Racer, Demolition Racer, TNN Hardcore Heat, Tokyo Xtreme Racer 2, Metropolis Street Racer, SF Rush 2049: mandos del mueble y VMU desbloqueada; los que no cabían en 512 MB, con vídeos recodificados o audio a mono |
 | **OutRun 2006 Coast 2 Coast**, demo de ArkRetro (homebrew de DC → NAOMI) | 🧪 Subida, sin probar en placa | — | v37 (2026-11-12): llega al título y a la demo en Flycast; cabe en 512 MB con 4 de sus 28 canciones largas (las demás suenan como una de esas cuatro) |
+| **Mario Kart 64** (port de Dreamcast de jnmartin84, homebrew KallistiOS → NAOMI) | ✅ Funciona en placa | ~30 fps, alguna caída | Compilado con KallistiOS parcheada (`NAOMI_HOST`) y empaquetado con dc2naomi ([receta](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/mk64)); acelerador = A, freno = B, palanca adelante = salto/derrape, atrás = objeto; sin VMU todavía; versión en español pendiente |
 | **Super Sprint** (MAME4ALL) | ✅ Funciona en placa | 60 fps | T11 recompilado estáticamente; volante como volante giratorio |
 | **OutRunners** (port nativo de cheviman/outrunners-port) | 🧪 En curso | 60 fps en placa (imagen) | Imagen por la PowerVR2 probada en placa; sombras, fundidos y sonido en el AICA hechos y sin probar. [estudio](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md) |
 | **Virtua Tennis** (DC → NAOMI) | ✅ Arranca en placa | — | Primer juego de Dreamcast que arrancó en la placa real (2026-11-08); faltan los mandos |
@@ -120,7 +121,7 @@ table). Candidate MAME/FBA versions and decompilations: [investigacion.md](inves
 | ⚠️ **Done, slow on the board** | 60 in Flycast; ~46 fps and hangs on the board | **Hang-On** and **Konami GT** (ported MAME4ALL) |
 | 🟢 **Easy** | Same MAME4ALL port, only the driver has to be added | Super Hang-On, Enduro Racer, Spy Hunter, Max RPM, Turbo, Sprint 2, Arkanoid… |
 | 🟡 **Medium** | Needs porting another MAME/FBA version or a native port | Super Off Road, Turbo OutRun, Super Monaco GP (Pole Position and Power Drift are already played through dc2naomi) |
-| 🟠 **Hard** | A lot of work or tight performance | Wipeout (DC port), Mario Kart 64 (DC port, converted, untested on the board) |
+| 🟠 **Hard** | A lot of work or tight performance | Wipeout (DC port) |
 | 🔴 **Not viable (today)** | Hardware too powerful or no code | Emulated Model 2/3 (Sega Rally, Scud Race, Daytona 2), Ridge Racer arcade, Virtua Racing arcade, Initial D (cards), Sega Driving Simulator (3 monitors) |
 
 #### Native games (no emulation)
@@ -173,6 +174,7 @@ Default settings can be fixed with an SRAM made in Demul + `attach_sram` from Dr
 | **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | ✅ Works on the board | — | Whole disc (`ysgw7`) and **one image per game** (OutRun, Hang-On, Power Drift, After Burner II, Space Harrier), all tested on the board. Power Drift: music crackling fixed. After Burner II: auto-fire, accelerator = throttle, brake = missile and the arcade's lamps on the START button. Space Harrier: rapid fire on the accelerator |
 | **Dreamcast racing games in batches** (DC → NAOMI) | 🧪 Uploaded, untested on the board | — | Test Drive 6, TD Le Mans, Wacky Races, Jeremy McGrath Supercross 2000, Star Wars Racer, Demolition Racer, TNN Hardcore Heat, Tokyo Xtreme Racer 2, Metropolis Street Racer, SF Rush 2049: the cabinet's controls and an unlocked VMU; those that did not fit in 512 MB with re-encoded videos or mono audio |
 | **OutRun 2006 Coast 2 Coast**, ArkRetro's demo (DC homebrew → NAOMI) | 🧪 Uploaded, untested on the board | — | v37 (2026-11-12): reaches the title and the demo in Flycast; fits in 512 MB with 4 of its 28 long songs (the others play as one of those four) |
+| **Mario Kart 64** (jnmartin84's Dreamcast port, KallistiOS homebrew → NAOMI) | ✅ Works on the board | ~30 fps, some drops | Built with a patched KallistiOS (`NAOMI_HOST`) and packed with dc2naomi ([recipe](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/mk64)); gas = A, brake = B, lever forward = hop/drift, back = item; no VMU yet; Spanish version pending |
 | **Super Sprint** (MAME4ALL) | ✅ Works on the board | 60 fps | T11 statically recompiled; wheel as a spinning wheel |
 | **OutRunners** (native port of cheviman/outrunners-port) | 🧪 In progress | 60 fps on the board (picture) | Picture through the PowerVR2 tested on the board; shadows, fades and sound on the AICA done and untested. [study](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md) |
 | **Virtua Tennis** (DC → NAOMI) | ✅ Boots on the board | — | First Dreamcast game that booted on the real board (2026-11-08); controls missing |
