@@ -1,7 +1,7 @@
 From 046476afbf82e3b10901619456ed1847c0a9dae5 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 04:31:49 +0100
-Subject: [PATCH 1/3] NAOMI port, first stage: boot, JVS controls, live figures
+Subject: [PATCH 1/4] NAOMI port, first stage: boot, JVS controls, live figures
 
 ports/naomi: the game, its board and its sound program on a NAOMI's SH-4
 (KallistiOS, KOS_SUBARCH=naomi), the Crazy Taxi upright's wheel, pedals and
@@ -1722,7 +1722,7 @@ index 872e227..76aa7fc 100644
 From 52320d4a428a9457a07d746eee2c7a0e48ee89ae Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 04:44:05 +0100
-Subject: [PATCH 2/3] NAOMI port: no pthreads (workers_none.c); builds and
+Subject: [PATCH 2/4] NAOMI port: no pthreads (workers_none.c); builds and
  links with KOS for KOS_SUBARCH=naomi
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -1799,7 +1799,7 @@ index 0000000..7b61d97
 From 3d5d3349ae774a770c1b47d6550b508b42237d79 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 10:12:23 +0100
-Subject: [PATCH 3/3] NAOMI port runs on the board: game thread with the tasks'
+Subject: [PATCH 3/4] NAOMI port runs on the board: game thread with the tasks'
  stacks, faster sound board
 
 Found on the NAOMI 2 through the NetDIMM: KallistiOS stops a thread whose
@@ -2576,6 +2576,2704 @@ index 76aa7fc..53ee148 100644
  			for (size_t index = 0; index < (size_t)HEIGHT * WIDTH; index++)
  				shown[index] = 0xffff;
  			if (video.extra_used)
+-- 
+2.43.0
+
+
+From b397cb0c36115227ac32196a0657a98e71d8ab9e Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 14:17:46 +0100
+Subject: [PATCH 4/4] NAOMI stage 2: the frame on the PowerVR2 (scene of
+ textured quads)
+
+runtime/src/video_scene.c (ORUNNERS_VIDEO_SCENE, included by video.c): the
+frame as textured quads for a GPU: tilemap pages and the text map as images
+redrawn where cells or colours change, NBG0 split where it crosses pages,
+NBG2 line by line (row scroll, row select), the bitmap layer through window 4,
+the backdrop, sprites from a cache of images in their colours, the mixer's
+priorities as depth, colour offsets as modulate and add. Checked against
+video.c with video_scene_soft.c (ORUNNERS_SCENE_COMPARE in the headless
+build): most frames under 1 % of pixels differ (sprite edges); fades are an
+approximation.
+
+ports/naomi/pvr_video.c: the images as ARGB1555 textures, the quads as
+punch-through polygons sent by direct rendering, sorted by texture. On the
+board: 60 fps in attract and most of a race. Also: misaligned loads and
+stores done a byte at a time in the exception handler (the V60's code reads
+words at odd addresses), MultiPCM synthesis off until the AICA plays it
+(ORUNNERS_NO_PCM_SYNTHESIS), test inputs pokeable for races without anyone
+at the cabinet (race.py).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016VRYRPP2crYKhAiGSakTbz
+---
+ CMakeLists.txt                         |    1 +
+ ports/headless/main.c                  |  111 ++
+ ports/naomi/Makefile                   |    4 +-
+ ports/naomi/live.py                    |   14 +-
+ ports/naomi/main.c                     |  105 +-
+ ports/naomi/naomi.h                    |   16 +-
+ ports/naomi/naomi_log.c                |  166 +++
+ ports/naomi/pvr_video.c                |  253 +++++
+ ports/naomi/pvr_video.h                |   33 +
+ ports/naomi/race.py                    |   35 +
+ runtime/include/s32/video_scene.h      |   96 ++
+ runtime/include/s32/video_scene_soft.h |   31 +
+ runtime/src/sound_chips.c              |    7 +
+ runtime/src/video.c                    |   19 +
+ runtime/src/video_scene.c              | 1355 ++++++++++++++++++++++++
+ runtime/src/video_scene_soft.c         |  135 +++
+ 16 files changed, 2316 insertions(+), 65 deletions(-)
+ create mode 100644 ports/naomi/pvr_video.c
+ create mode 100644 ports/naomi/pvr_video.h
+ create mode 100644 ports/naomi/race.py
+ create mode 100644 runtime/include/s32/video_scene.h
+ create mode 100644 runtime/include/s32/video_scene_soft.h
+ create mode 100644 runtime/src/video_scene.c
+ create mode 100644 runtime/src/video_scene_soft.c
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 394e5d9..c9c23fc 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -64,6 +64,7 @@ add_library(s32runtime STATIC
+ 	runtime/src/memory_census.c
+ 	runtime/src/tasks.c
+ 	runtime/src/video.c
++	runtime/src/video_scene_soft.c
+ 	runtime/src/workers.c
+ 	runtime/src/multipcm.c
+ 	runtime/src/sound_chips.c
+diff --git a/ports/headless/main.c b/ports/headless/main.c
+index 3920465..0948e3d 100644
+--- a/ports/headless/main.c
++++ b/ports/headless/main.c
+@@ -314,8 +314,119 @@ static void network_frame(void)
+ }
+ #endif
+ 
++#ifdef ORUNNERS_VIDEO_SCENE
++#include "s32/video_scene_soft.h"
++
++/* ORUNNERS_SCENE_COMPARE=DIR: every frame the scene's quads drawn in software against video.c's frame (the
++   left screen): a line every 30 frames, the pixels that differ, and both pictures every 600 in DIR */
++static void scene_compare(void)
++{
++	static int state;    /* 0 not looked at, 1 on, 2 off */
++	static const char *dir;
++	static uint32_t pixels[224 * 320];
++	static uint64_t total_differ, total_pixels;
++	const uint64_t frame = program_frames() - 1;
++	int width;
++	const uint32_t *board;
++	const s32_scene_frame *scene;
++	long differ = 0;
++
++	if (state == 0)
++	{
++		dir = getenv("ORUNNERS_SCENE_COMPARE");
++		state = dir ? 1 : 2;
++		if (dir)
++		{
++			s32_scene_start(s32_scene_soft_backend(3l << 20), false);    /* (6 MB of 16-bit texels) */
++			s32_scene_follow_frames(true);
++		}
++	}
++	if (state != 1)
++		return;
++	if (!(scene = s32_scene_last()))
++		return;
++	s32_scene_soft_draw(scene, pixels, 320);
++	board = s32_video_frame(0, &width);
++	for (int y = 0; y < 224; y++)
++		for (int x = 0; x < 320; x++)
++			differ += (board[(size_t)y * S32_VIDEO_MAX_WIDTH + (size_t)x] & 0xf8f8f8) != pixels[y * 320 + x];
++	total_differ += (uint64_t)differ;
++	total_pixels += 320 * 224;
++	if (frame % 30 == 0)
++		printf("scene %" PRIu64 ": %ld pixels differ (%.2f %%; all %.3f %%), %d quads, %d images drawn (%d texels), missing %04x\n",
++			frame, differ, differ * 100.0 / (320 * 224), total_differ * 100.0 / (double)total_pixels, scene->count,
++			scene->images_drawn, scene->texels_drawn, scene->missing);
++	if (getenv("ORUNNERS_SCENE_QUADS") && (uint64_t)atoll(getenv("ORUNNERS_SCENE_QUADS")) == frame)
++		for (int index = 0; index < scene->count; index++)
++		{
++			const s32_scene_quad *q = &scene->quads[index];
++
++			printf("quad %d: z %.3f image %d (%.1f,%.1f)-(%.1f,%.1f) uv (%.2f,%.2f)-(%.2f,%.2f) colour %04x mod %06x add %06x\n",
++				index, q->z, q->image, q->x0, q->y0, q->x1, q->y1, q->u0, q->v0, q->u1, q->v1, q->colour, (unsigned)q->modulate,
++				(unsigned)q->add);
++		}
++	if (getenv("ORUNNERS_SCENE_QUADS") && (uint64_t)atoll(getenv("ORUNNERS_SCENE_QUADS")) == frame)
++		for (int image = 1; image < 4096; image++)
++		{
++			int w, h;
++			const uint16_t *texels = s32_scene_soft_image(image, &w, &h);
++			char path[1024];
++			FILE *out;
++
++			if (!texels || w < 512)
++				continue;
++			snprintf(path, sizeof(path), "%s/image_%d.ppm", dir, image);
++			if ((out = fopen(path, "wb")) != NULL)
++			{
++				fprintf(out, "P6 %d %d 255\n", w, h);
++				for (int i = 0; i < w * h; i++)
++				{
++					const uint16_t t = texels[i];
++					fputc(t & 0x8000 ? (t >> 10 & 31) << 3 : 255, out);
++					fputc(t & 0x8000 ? (t >> 5 & 31) << 3 : 0, out);
++					fputc(t & 0x8000 ? (t & 31) << 3 : 255, out);
++				}
++				fclose(out);
++			}
++		}
++	if ((frame % 600 == 0 && frame) || (getenv("ORUNNERS_SCENE_DUMP") && (uint64_t)atoll(getenv("ORUNNERS_SCENE_DUMP")) == frame))
++	{
++		char path[1024];
++		FILE *out;
++
++		snprintf(path, sizeof(path), "%s/scene_%" PRIu64 ".ppm", dir, frame);
++		if ((out = fopen(path, "wb")) != NULL)
++		{
++			fprintf(out, "P6 640 224 255\n");
++			for (int y = 0; y < 224; y++)
++			{
++				for (int x = 0; x < 320; x++)
++				{
++					const uint32_t p = board[(size_t)y * S32_VIDEO_MAX_WIDTH + (size_t)x];
++					fputc((int)(p >> 16 & 255), out);
++					fputc((int)(p >> 8 & 255), out);
++					fputc((int)(p & 255), out);
++				}
++				for (int x = 0; x < 320; x++)
++				{
++					const uint32_t p = pixels[y * 320 + x];
++					fputc((int)(p >> 16 & 255), out);
++					fputc((int)(p >> 8 & 255), out);
++					fputc((int)(p & 255), out);
++				}
++			}
++			fclose(out);
++		}
++	}
++}
++#endif
++
+ static void on_frame_done(void)
+ {
++#ifdef ORUNNERS_VIDEO_SCENE
++	if (video_hashes)
++		scene_compare();
++#endif
+ 	if (hashes)
+ 		fprintf(hashes, "%" PRIu64 " %016" PRIx64 "\n", program_frames() - 1, s32_state_hash());
+ 	if (dump_dir && program_frames() - 1 == dump_frame)
+diff --git a/ports/naomi/Makefile b/ports/naomi/Makefile
+index 9f0b841..1e7d72c 100644
+--- a/ports/naomi/Makefile
++++ b/ports/naomi/Makefile
+@@ -11,14 +11,14 @@ TARGET = orunners_naomi.elf
+ RUNTIME = machine io sound ym3438 memory_census tasks video multipcm sound_chips sound_cpu \
+ 	game assets assets_media assets_midi assets_pack json png inflate
+ GAME_C := $(shell find $(ROOT)/src -name '*.c')
+-OBJS = main.o naomi_log.o naomi_dimmfs.o naomi_dimmcomms.o workers_none.o \
++OBJS = main.o pvr_video.o naomi_log.o naomi_dimmfs.o naomi_dimmcomms.o workers_none.o \
+ 	$(addprefix runtime/,$(addsuffix .o,$(RUNTIME))) \
+ 	$(patsubst $(ROOT)/src/%.c,game/%.o,$(GAME_C))
+ 
+ # the game's C reads the work RAM through typed lvalues (game/support.h): no strict aliasing anywhere.
+ # ORUNNERS_PACKED_PENS: the tiles two pens to a byte (naomi_assets.py). Two tasks of about 3.5 KB of stack each
+ # on Linux: 128 KB each is plenty (runtime/src/tasks.c)
+-OUR_CFLAGS = -O2 -fno-strict-aliasing -Wno-stringop-overflow -DORUNNERS_NAOMI -DORUNNERS_NO_FM_SYNTHESIS -DORUNNERS_PACKED_PENS -DORUNNERS_VIDEO_ON_HEAP -DTASK_STACK_SIZE='(128u << 10)' \
++OUR_CFLAGS = -O2 -fno-strict-aliasing -Wno-stringop-overflow -DORUNNERS_NAOMI -DORUNNERS_NO_FM_SYNTHESIS -DORUNNERS_NO_PCM_SYNTHESIS -DORUNNERS_PACKED_PENS -DORUNNERS_VIDEO_ON_HEAP -DORUNNERS_VIDEO_SCENE -DTASK_STACK_SIZE='(128u << 10)' \
+ 	-I$(ROOT)/runtime/include -I$(ROOT)/src -I. $(EXTRA)
+ 
+ all: $(TARGET)
+diff --git a/ports/naomi/live.py b/ports/naomi/live.py
+index f5d8dd7..5324d25 100644
+--- a/ports/naomi/live.py
++++ b/ports/naomi/live.py
+@@ -20,7 +20,8 @@ sys.path.append('/sbin/piforce/dm_netboot')
+ from netdimm import NetDimm, PeekPokeTypeEnum as T
+ 
+ FIELDS = ('magic version seconds game_frames drawn_frames game_us sound_us video_us worst_frame_us frames_total '
+-          'dimm_requests log_lines log_count log_width log_next heap_left draw_every inputs').split()
++          'dimm_requests log_lines log_count log_width log_next heap_left draw_every inputs profile_pcs profile_count '
++          'profile_size quads texels_drawn missing video_memory_free textures build_us wait_us submit_us').split()
+ 
+ 
+ def main():
+@@ -53,11 +54,14 @@ def main():
+             if live['seconds'] != last:
+                 last = live['seconds']
+                 i = live['inputs']
+-                print('%5ds  game %2d fps  drawn %2d  game %6d us  sound %6d us  video %7d us  worst %7d us  '
+-                      'wheel %02x gas %02x brake %02x E %02x  heap %d KB' % (
++                print('%5ds  game %2d fps  drawn %2d  game %5d us  sound %5d us  video %5d us (build %d wait %d submit %d)  worst %6d us  '
++                      'quads %3d  texels %6d/s  missing %04x  textures %d (%d failed)  vram %d KB  '
++                      'wheel %02x gas %02x brake %02x E %02x' % (
+                           live['seconds'], live['game_frames'], live['drawn_frames'], live['game_us'],
+-                          live['sound_us'], live['video_us'], live['worst_frame_us'], i & 255, i >> 8 & 255,
+-                          i >> 16 & 255, i >> 24, live['heap_left'] // 1024), flush=True)
++                          live['sound_us'], live['video_us'], live['build_us'], live['wait_us'], live['submit_us'],
++                          live['worst_frame_us'], live['quads'],
++                          live['texels_drawn'], live['missing'], live['textures'] & 0xffff, live['textures'] >> 16,
++                          live['video_memory_free'] // 1024, i & 255, i >> 8 & 255, i >> 16 & 255, i >> 24), flush=True)
+             time.sleep(0.25)
+ 
+ 
+diff --git a/ports/naomi/main.c b/ports/naomi/main.c
+index e276026..0b22016 100644
+--- a/ports/naomi/main.c
++++ b/ports/naomi/main.c
+@@ -31,6 +31,7 @@
+ 
+ #include "naomi.h"
+ #include "naomi_dimmfs.h"
++#include "pvr_video.h"
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -136,6 +137,23 @@ static void on_controls_update(void)
+ 		}
+ 		coin_counts_known = 1;
+ 	}
++	if (orunners_naomi_live.test_inputs & 0x80000000u)
++	{
++		const uint32_t test = orunners_naomi_live.test_inputs;
++
++		if (test & 1)
++		{
++			coin_frames = 4;
++			orunners_naomi_live.test_inputs &= ~1u;
++		}
++		start = start || (test & 2);
++		shift_up = shift_up || (test & 4);
++		shift_down = shift_down || (test & 8);
++		if (test >> 8 & 0xff)
++			gas = (uint8_t)(test >> 8);
++		if (test >> 16 & 0xff)
++			wheel = (uint8_t)(test >> 16);
++	}
+ 	if (coin_frames > 0)
+ 	{
+ 		coin = true;
+@@ -159,7 +177,8 @@ static void on_controls_update(void)
+ /* ---- the time each part takes ---- */
+ 
+ static uint64_t frame_started, video_time, sound_time, frame_worst;
+-static uint64_t second_game, second_sound, second_video;
++static uint64_t second_game, second_sound, second_video, second_texels, second_build, second_wait, second_submit;
++static uint32_t missing_seen;
+ static uint32_t second_frames, second_drawn;
+ 
+ /* The last second's figures, from the peek thread once a second (naomi_dimmcomms.c) */
+@@ -168,9 +187,11 @@ void naomi_live_second(void)
+ 	const irq_mask_t old = irq_disable();
+ 	const uint32_t frames = second_frames, drawn = second_drawn;
+ 	const uint64_t game = second_game, sound = second_sound, video = second_video, worst = frame_worst;
++	const uint64_t texels = second_texels, build = second_build, wait = second_wait, submit = second_submit;
+ 
+ 	second_frames = second_drawn = 0;
+-	second_game = second_sound = second_video = frame_worst = 0;
++	second_game = second_sound = second_video = frame_worst = second_texels = 0;
++	second_build = second_wait = second_submit = 0;
+ 	irq_restore(old);
+ 	orunners_naomi_live.game_frames = frames;
+ 	orunners_naomi_live.drawn_frames = drawn;
+@@ -178,64 +199,39 @@ void naomi_live_second(void)
+ 	orunners_naomi_live.sound_us = frames ? (uint32_t)(sound / frames) : 0;
+ 	orunners_naomi_live.video_us = drawn ? (uint32_t)(video / drawn) : 0;
+ 	orunners_naomi_live.worst_frame_us = (uint32_t)worst;
++	orunners_naomi_live.texels_drawn = (uint32_t)texels;
++	orunners_naomi_live.build_us = drawn ? (uint32_t)(build / drawn) : 0;
++	orunners_naomi_live.wait_us = drawn ? (uint32_t)(wait / drawn) : 0;
++	orunners_naomi_live.submit_us = drawn ? (uint32_t)(submit / drawn) : 0;
+ 	++orunners_naomi_live.seconds;
+ }
+ 
+-/* ---- the picture: video.c's frame, doubled, in a 640 x 480 RGB565 framebuffer ---- */
+-
+-static void show_frame(void)
+-{
+-	int width;
+-	const uint32_t *frame = s32_video_frame(0, &width);
+-	const int top = (480 - 2 * S32_VIDEO_HEIGHT) / 2;
+-	const int left = (640 - 2 * (width > 320 ? 320 : width)) / 2;
+-
+-	for (int y = 0; y < S32_VIDEO_HEIGHT; y++)
+-	{
+-		const uint32_t *row = frame + (size_t)y * S32_VIDEO_MAX_WIDTH;
+-		uint32_t *out0 = (uint32_t *)(vram_s + (size_t)(top + 2 * y) * 640 + left);
+-		uint32_t *out1 = (uint32_t *)(vram_s + (size_t)(top + 2 * y + 1) * 640 + left);
+-
+-		/* (32-bit writes: the VRAM takes no byte writes, docs/hardware.md) */
+-		for (int x = 0; x < 320 && x < width; x++)
+-		{
+-			const uint32_t pixel = row[x];
+-			const uint32_t colour = (pixel >> 8 & 0xf800) | (pixel >> 5 & 0x07e0) | (pixel >> 3 & 0x001f);
+-
+-			out0[x] = out1[x] = colour | colour << 16;
+-		}
+-	}
+-}
+-
+-/* Whether this frame is drawn: video.c's sprites and mix only for the screens shown, so on the other frames
+-   it is told there is no screen at all (s32_video_show_screens(0)) and costs little */
+-static bool drawing;
++/* ---- the picture: the scene on the PowerVR2 (pvr_video.c) ---- */
+ 
+-static void choose_drawing(void)
+-{
+-	static uint32_t count;
+-	uint32_t every = orunners_naomi_live.draw_every;
+-
+-	if (every < 1 || every > 600)
+-		every = 4;
+-	count++;
+-	drawing = count % every == 0;
+-	/* (the frame before a drawn one too: the sprites drawn in a frame may be the ones the next one shows) */
+-	s32_video_show_screens(drawing || (count + 1) % every == 0 ? 1 : 0);
+-}
+ 
+-/* When the board's frame is shown (VBLANK) */
++/* When the board's frame is shown (VBLANK): its scene, to the PowerVR2 */
+ static void on_frame_shown(void)
+ {
+-	uint64_t start;
++	const uint64_t start = timer_us_gettime64();
++	pvr_video_stats stats;
+ 
+-	if (!drawing)
+-		return;
+-	start = timer_us_gettime64();
+-	s32_video_draw_frame();
+-	show_frame();
++	pvr_video_frame(&stats);
+ 	video_time += timer_us_gettime64() - start;
+ 	second_drawn++;
++	second_texels += (uint64_t)stats.texels_drawn;
++	second_build += stats.build_us;
++	second_wait += stats.wait_us;
++	second_submit += stats.submit_us;
++	if (stats.missing & ~missing_seen)
++	{
++		printf("NAOMI: frame %lu needs what the scene does not draw: %04lx\n", (unsigned long)orunners_naomi_live.frames_total,
++			(unsigned long)stats.missing);
++		missing_seen |= stats.missing;
++	}
++	orunners_naomi_live.quads = (uint32_t)stats.quads;
++	orunners_naomi_live.missing = missing_seen;
++	orunners_naomi_live.video_memory_free = stats.video_memory_free;
++	orunners_naomi_live.textures = (uint32_t)stats.images | (uint32_t)stats.failed << 16;
+ }
+ 
+ static void on_frame_done(void)
+@@ -269,10 +265,8 @@ static void on_frame_done(void)
+ 		printf("NAOMI: frame %lu: %lu us (sound %lu, video %lu)\n", (unsigned long)orunners_naomi_live.frames_total,
+ 			(unsigned long)(now - frame_started), (unsigned long)sound_time, (unsigned long)video_time);
+ 	video_time = sound_time = 0;
+-	choose_drawing();
+ 
+-	/* no faster than the board: a frame is 1/60 s (the 31 kHz monitor's vblank is 60 Hz too) */
+-	vid_waitvbl();
++	/* (no faster than the board: the PowerVR2 takes a new scene once a vblank, pvr_video_frame waits for it) */
+ 	frame_started = timer_us_gettime64();
+ }
+ 
+@@ -365,8 +359,7 @@ int main(int argc, char **argv)
+ 				(unsigned long)naomi_heap_left());
+ 		}
+ #endif
+-	vid_set_mode(DM_640x480, PM_RGB565);
+-	vid_clear(0, 0, 0);
++	pvr_video_start();
+ 	load_assets();
+ 	orunners_naomi_live.heap_left = naomi_heap_left();
+ 	printf("NAOMI: %lu bytes of RAM left\n", (unsigned long)orunners_naomi_live.heap_left);
+@@ -390,7 +383,7 @@ int main(int argc, char **argv)
+ 	printf("NAOMI: %s\n", "s32_init(NULL);");
+ 	s32_init(NULL);
+ 	s32_video_init_graphics(assets_graphics());
+-	choose_drawing();    /* (one screen at most, the cabinet's: s32_video_show_screens) */
++	s32_video_show_screens(1);
+ 	s32_board.frame_shown = on_frame_shown;
+ 	s32_board.sound_at = assets_sound_data;
+ 	s32_board.sound_byte_at = assets_sound_byte;
+diff --git a/ports/naomi/naomi.h b/ports/naomi/naomi.h
+index be6838f..22af233 100644
+--- a/ports/naomi/naomi.h
++++ b/ports/naomi/naomi.h
+@@ -24,7 +24,7 @@ typedef struct
+ 	uint32_t drawn_frames;     /* +0x10 frames drawn on the screen in the last second */
+ 	uint32_t game_us;          /* +0x14 the V70's C and the board a frame, average (microseconds) */
+ 	uint32_t sound_us;         /* +0x18 the Z80's C and the sound chips a frame, average */
+-	uint32_t video_us;         /* +0x1c video.c's frame plus the copy to the screen, average of the frames drawn */
++	uint32_t video_us;         /* +0x1c the scene built and handed to the PowerVR2 (pvr_video.c), average a frame */
+ 	uint32_t worst_frame_us;   /* +0x20 the longest game frame of the last second, video and sound included */
+ 	uint32_t frames_total;     /* +0x24 the game's frames since boot */
+ 	uint32_t dimm_requests;    /* +0x28 peeks and pokes answered */
+@@ -33,11 +33,23 @@ typedef struct
+ 	uint32_t log_width;        /* +0x34 */
+ 	uint32_t log_next;         /* +0x38 address of the number of lines written so far */
+ 	uint32_t heap_left;        /* +0x3c bytes above the heap's top after loading */
+-	uint32_t draw_every;       /* +0x40 a frame drawn every this many (pokeable: 1-600) */
++	uint32_t draw_every;       /* +0x40 (unused since the PowerVR2 draws every frame) */
+ 	uint32_t inputs;           /* +0x44 wheel | gas << 8 | brake << 16 | port E bits << 24, as the game reads them */
+ 	uint32_t profile_pcs;      /* +0x48 address of PROFILE_SAMPLES words: the game thread's pc, sampled every ms */
+ 	uint32_t profile_count;    /* +0x4c samples taken so far (the ring's next index is this modulo its size) */
+ 	uint32_t profile_size;     /* +0x50 the ring's size in words */
++	uint32_t quads;            /* +0x54 the last frame's quads (pvr_video.c) */
++	uint32_t texels_drawn;     /* +0x58 texels made in the last second (tiles, bitmap rows, sprites) */
++	uint32_t missing;          /* +0x5c what the frames needed that the scene does not draw (S32_SCENE_MISSING_ bits, or'ed) */
++	uint32_t video_memory_free;/* +0x60 bytes of video memory left */
++	uint32_t textures;         /* +0x64 textures held; failed allocations << 16 */
++	uint32_t build_us;         /* +0x68 of video_us, the last second's average: the scene worked out */
++	uint32_t wait_us;          /* +0x6c ... waiting for the PowerVR2 */
++	uint32_t submit_us;        /* +0x70 ... the quads handed to it */
++	uint32_t test_inputs;      /* +0x74 pokeable, for tests without anyone at the cabinet: bit 31 on; bit 0 a
++	                              coin (cleared once taken), bit 1 START held, bits 8-15 gas, bits 16-23 the wheel
++	                              (0x80 centre; 0 = the cabinet's own), bit 2 shift up held, bit 3 shift down */
++	uint32_t misaligned;       /* +0x78 misaligned loads and stores done a byte at a time (naomi_log.c) */
+ } orunners_naomi_live_t;
+ extern volatile orunners_naomi_live_t orunners_naomi_live;
+ 
+diff --git a/ports/naomi/naomi_log.c b/ports/naomi/naomi_log.c
+index c77f901..05cf9c0 100644
+--- a/ports/naomi/naomi_log.c
++++ b/ports/naomi/naomi_log.c
+@@ -123,11 +123,175 @@ void naomi_show_log(const char *why)
+ 	show_log(why, 0);
+ }
+ 
++/* ---- misaligned loads and stores ----
++
++   The V60 reads and writes words at any address, and the game's C does as its code did (src/objects/scenery.c's
++   flashing scenery reads a palette list at an odd address, found on the board, 2026-11-13); the SH-4 takes an
++   address error instead. The handler does the access a byte at a time (little endian, as the SH-4's) and goes
++   on after the instruction (in a branch's delay slot too: then the branch is done as well). Not the FPU's
++   moves: those stay errors. */
++
++static uint32_t load_bytes(uint32_t address, int size)
++{
++	const volatile uint8_t *at = (const volatile uint8_t *)(uintptr_t)address;
++	uint32_t value = 0;
++
++	for (int index = size - 1; index >= 0; index--)
++		value = value << 8 | at[index];
++	return size == 2 ? (uint32_t)(int32_t)(int16_t)value : value;
++}
++
++static void store_bytes(uint32_t address, uint32_t value, int size)
++{
++	volatile uint8_t *at = (volatile uint8_t *)(uintptr_t)address;
++
++	for (int index = 0; index < size; index++, value >>= 8)
++		at[index] = (uint8_t)value;
++}
++
++static bool emulate_access(irq_context_t *context, uint16_t op)
++{
++	const int n = op >> 8 & 15, m = op >> 4 & 15, low = op & 15;
++	uint32_t *r = context->r;
++
++	switch (op >> 12)
++	{
++		case 0x6:    /* mov.w/l @Rm,Rn and @Rm+,Rn */
++			if (low == 1 || low == 2)
++				r[n] = load_bytes(r[m], low == 1 ? 2 : 4);
++			else if (low == 5 || low == 6)
++			{
++				const int size = low == 5 ? 2 : 4;
++				const uint32_t value = load_bytes(r[m], size);
++
++				if (n != m)
++					r[m] += (uint32_t)size;
++				r[n] = value;
++			}
++			else
++				return false;
++			break;
++		case 0x5:    /* mov.l @(disp,Rm),Rn */
++			r[n] = load_bytes(r[m] + (uint32_t)(low * 4), 4);
++			break;
++		case 0x2:    /* mov.w/l Rm,@Rn and Rm,@-Rn */
++			if (low == 1 || low == 2)
++				store_bytes(r[n], r[m], low == 1 ? 2 : 4);
++			else if (low == 5 || low == 6)
++			{
++				const int size = low == 5 ? 2 : 4;
++
++				store_bytes(r[n] - (uint32_t)size, r[m], size);
++				r[n] -= (uint32_t)size;
++			}
++			else
++				return false;
++			break;
++		case 0x1:    /* mov.l Rm,@(disp,Rn) */
++			store_bytes(r[n] + (uint32_t)(low * 4), r[m], 4);
++			break;
++		case 0x0:    /* @(R0,Rm) and @(R0,Rn) */
++			if (low == 0xd || low == 0xe)
++				r[n] = load_bytes(r[0] + r[m], low == 0xd ? 2 : 4);
++			else if (low == 5 || low == 6)
++				store_bytes(r[0] + r[n], r[m], low == 5 ? 2 : 4);
++			else
++				return false;
++			break;
++		case 0x8:
++			if (n == 5)         /* mov.w @(disp,Rm),R0 */
++				r[0] = load_bytes(r[m] + (uint32_t)(low * 2), 2);
++			else if (n == 1)    /* mov.w R0,@(disp,Rn) */
++				store_bytes(r[m] + (uint32_t)(low * 2), r[0], 2);
++			else
++				return false;
++			break;
++		case 0xc:
++			switch (n)
++			{
++				case 1: store_bytes(context->gbr + (uint32_t)(op & 0xff) * 2, r[0], 2); break;
++				case 2: store_bytes(context->gbr + (uint32_t)(op & 0xff) * 4, r[0], 4); break;
++				case 5: r[0] = load_bytes(context->gbr + (uint32_t)(op & 0xff) * 2, 2); break;
++				case 6: r[0] = load_bytes(context->gbr + (uint32_t)(op & 0xff) * 4, 4); break;
++				default: return false;
++			}
++			break;
++		default:
++			return false;
++	}
++	return true;
++}
++
++/* A delayed branch, its target if it is taken (in *target; *taken), whether it is one at all */
++static bool delayed_branch(const irq_context_t *context, uint16_t op, uint32_t *target, bool *taken)
++{
++	const uint32_t pc = context->pc;
++	const int n = op >> 8 & 15;
++
++	*taken = true;
++	if ((op & 0xf000) == 0xa000 || (op & 0xf000) == 0xb000)    /* bra, bsr */
++		*target = pc + 4 + (uint32_t)((int32_t)((op & 0xfff) << 20) >> 19);
++	else if ((op & 0xff00) == 0x8d00 || (op & 0xff00) == 0x8f00)    /* bt/s, bf/s */
++	{
++		*target = pc + 4 + (uint32_t)((int32_t)(int8_t)(op & 0xff) * 2);
++		*taken = ((context->sr & 1) != 0) == ((op & 0xff00) == 0x8d00);
++	}
++	else if ((op & 0xf0ff) == 0x402b || (op & 0xf0ff) == 0x400b)    /* jmp, jsr @Rn */
++		*target = context->r[n];
++	else if (op == 0x000b)    /* rts */
++		*target = context->pr;
++	else if ((op & 0xf0ff) == 0x0023 || (op & 0xf0ff) == 0x0003)    /* braf, bsrf Rn */
++		*target = pc + 4 + context->r[n];
++	else
++		return false;
++	return true;
++}
++
++static bool emulate_misaligned(irq_context_t *context)
++{
++	const uint16_t op = *(const uint16_t *)(uintptr_t)context->pc;
++	uint32_t target;
++	bool taken;
++
++	if (delayed_branch(context, op, &target, &taken))
++	{
++		/* the access is in the branch's delay slot: it, then the branch */
++		const uint32_t after = context->pc + 4;
++		const bool subroutine = (op & 0xf000) == 0xb000 || (op & 0xf0ff) == 0x400b || (op & 0xf0ff) == 0x0003;
++
++		if (!emulate_access(context, *(const uint16_t *)(uintptr_t)(context->pc + 2)))
++			return false;
++		if (subroutine)
++			context->pr = after;
++		context->pc = taken ? target : after;
++	}
++	else
++	{
++		if (!emulate_access(context, op))
++			return false;
++		context->pc += 2;
++	}
++	orunners_naomi_live.misaligned++;
++	return true;
++}
++
+ /* An exception nothing handles (an address error, an illegal instruction...): where it was, then the console on
+    the screen. Without this KallistiOS prints the registers and stops, and a cabinet shows black */
+ static void on_exception(irq_t code, irq_context_t *context, void *data)
+ {
+ 	(void)data;
++	if ((code == EXC_DATA_ADDRESS_READ || code == EXC_DATA_ADDRESS_WRITE) && emulate_misaligned(context))
++	{
++		static uint32_t told;
++
++		if (told < 8)
++		{
++			told++;
++			printf("NAOMI: a misaligned access (address %08lx), done a byte at a time\n",
++				(unsigned long)*(volatile uint32_t *)0xff00000c);
++		}
++		return;
++	}
+ 	printf("NAOMI EXCEPTION %03lx at pc %08lx pr %08lx, address %08lx, r15 %08lx, thread %s\n",
+ 		(unsigned long)code, (unsigned long)context->pc, (unsigned long)context->pr,
+ 		(unsigned long)*(volatile uint32_t *)0xff00000c, (unsigned long)context->r[15],
+@@ -203,6 +367,8 @@ int naomi_boot(void)
+ 	printf("NAOMI: OutRunners, KOS_SUBARCH=naomi\n");
+ 	main_thread = thd_get_current();
+ 	irq_set_handler(EXC_UNHANDLED_EXC, on_exception, NULL);
++	irq_set_handler(EXC_DATA_ADDRESS_READ, on_exception, NULL);
++	irq_set_handler(EXC_DATA_ADDRESS_WRITE, on_exception, NULL);
+ 	irq_set_handler(EXC_DOUBLE_FAULT, on_exception, NULL);
+ 	orunners_naomi_live.log_lines = (uint32_t)(uintptr_t)lines;
+ 	orunners_naomi_live.log_count = LOG_LINES;
+diff --git a/ports/naomi/pvr_video.c b/ports/naomi/pvr_video.c
+new file mode 100644
+index 0000000..57ea51e
+--- /dev/null
++++ b/ports/naomi/pvr_video.c
+@@ -0,0 +1,253 @@
++/**
++ *    Name:        pvr_video.c
++ *    Description: the frame on the NAOMI's PowerVR2 (CLX2): the scene's images (s32/video_scene.h) as textures in
++ *                 video memory, its quads as punch-through polygons, 320 x 224 doubled to 640 x 448 in a 640 x 480
++ *                 screen (KallistiOS's pvr)
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    Images are ARGB1555 textures, not twiddled (the CPU writes their texels as they change: a tile, a row of the
++ *    bitmap, a sprite). Bit 15 is the punch-through's alpha: the pens that are not drawn. Depth is the mixer's
++ *    priority (higher in front, compared GEQUAL); the background, untextured quads, the backdrop's colour.
++ *    Colour offsets: the vertex colour modulates the texels, the offset colour adds.
++ */
++#include <kos.h>
++#include <dc/pvr.h>
++#include <arch/timer.h>
++
++#include "s32/video_scene.h"
++#include "pvr_video.h"
++
++#include <stdio.h>
++#include <string.h>
++
++#define IMAGES 2048
++#define TOP    16          /* (480 - 448) / 2 */
++
++static struct
++{
++	pvr_ptr_t base[IMAGES];
++	int width[IMAGES], height[IMAGES];
++	size_t free_at_start;
++	int images, failed;
++} pvr_images;
++
++static int image_create(void *context, int width, int height)
++{
++	(void)context;
++	for (int image = 1; image < IMAGES; image++)
++		if (!pvr_images.base[image])
++		{
++			pvr_ptr_t base;
++
++			/* (leave 64 KB: KallistiOS's own) */
++			if (pvr_mem_available() < (size_t)width * (size_t)height * 2 + (64 << 10)
++				|| !(base = pvr_mem_malloc((size_t)width * (size_t)height * 2)))
++			{
++				pvr_images.failed++;
++				return 0;
++			}
++			pvr_images.base[image] = base;
++			pvr_images.width[image] = width;
++			pvr_images.height[image] = height;
++			pvr_images.images++;
++			return image;
++		}
++	return 0;
++}
++
++static void image_free(void *context, int image)
++{
++	(void)context;
++	if (image > 0 && image < IMAGES && pvr_images.base[image])
++	{
++		pvr_mem_free(pvr_images.base[image]);
++		pvr_images.base[image] = NULL;
++		pvr_images.images--;
++	}
++}
++
++/* Texels into video memory, 32 bits at a time (it takes no byte writes; x and width are even) */
++static void image_write(void *context, int image, int x, int y, int width, int height, const uint16_t *pixels, int stride)
++{
++	(void)context;
++	for (int row = 0; row < height; row++)
++	{
++		volatile uint32_t *out = (volatile uint32_t *)((uint16_t *)pvr_images.base[image]
++			+ (size_t)(y + row) * (size_t)pvr_images.width[image] + (size_t)x);
++		const uint16_t *in = &pixels[(size_t)row * (size_t)stride];
++
++		for (int column = 0; column < width; column += 2)
++			*out++ = (uint32_t)in[column] | (uint32_t)in[column + 1] << 16;
++	}
++}
++
++static const s32_scene_backend backend = { NULL, image_create, image_free, image_write };
++
++void pvr_video_start(void)
++{
++	pvr_init_params_t params = {
++		/* opaque, opaque modifiers, translucent, translucent modifiers, punch-through */
++		.opb_sizes = { PVR_BINSIZE_16, PVR_BINSIZE_0, PVR_BINSIZE_0, PVR_BINSIZE_0, PVR_BINSIZE_16 },
++		.vertex_buf_size = 512 * 1024,
++		.opb_overflow_count = 3,
++	};
++
++	pvr_init(&params);
++	pvr_set_bg_color(0, 0, 0);
++	pvr_images.free_at_start = pvr_mem_available();
++	printf("NAOMI: PowerVR2 on, %lu bytes of video memory for textures\n", (unsigned long)pvr_images.free_at_start);
++	s32_scene_start(&backend, true);
++}
++
++/* A header, straight to the tile accelerator through the store queues (direct rendering) */
++static void send_header(const pvr_poly_hdr_t *header)
++{
++	uint32_t *out = (uint32_t *)pvr_dr_target();
++	const uint32_t *in = (const uint32_t *)header;
++
++	for (int index = 0; index < 8; index++)
++		out[index] = in[index];
++	pvr_dr_commit(out);
++}
++
++static void send_vertex(uint32_t flags, float x, float y, float z, float u, float v, uint32_t argb, uint32_t oargb)
++{
++	pvr_vertex_t *vertex = (pvr_vertex_t *)pvr_dr_target();
++
++	vertex->flags = flags;
++	vertex->x = x;
++	vertex->y = y;
++	vertex->z = z;
++	vertex->u = u;
++	vertex->v = v;
++	vertex->argb = argb;
++	vertex->oargb = oargb;
++	pvr_dr_commit(vertex);
++}
++
++/* One quad as a strip of four vertices, 320 x 224 to the screen's 640 x 448 */
++static void quad_vertices(const s32_scene_quad *quad, float width, float height)
++{
++	const float x0 = quad->x0 * 2, x1 = quad->x1 * 2, y0 = quad->y0 * 2 + TOP, y1 = quad->y1 * 2 + TOP;
++	const float u0 = quad->u0 / width, u1 = quad->u1 / width, v0 = quad->v0 / height, v1 = quad->v1 / height;
++	const uint32_t argb = 0xff000000u | quad->modulate;
++
++	send_vertex(PVR_CMD_VERTEX, x0, y1, quad->z, u0, v1, argb, quad->add);
++	send_vertex(PVR_CMD_VERTEX, x0, y0, quad->z, u0, v0, argb, quad->add);
++	send_vertex(PVR_CMD_VERTEX, x1, y1, quad->z, u1, v1, argb, quad->add);
++	send_vertex(PVR_CMD_VERTEX_EOL, x1, y0, quad->z, u1, v0, argb, quad->add);
++}
++
++void pvr_video_frame(pvr_video_stats *stats)
++{
++	const uint64_t start = timer_us_gettime64();
++	const s32_scene_frame *frame = s32_scene_build();
++	const uint64_t built = timer_us_gettime64();
++	uint64_t ready;
++	pvr_poly_cxt_t context;
++	pvr_poly_hdr_t header;
++	int last_image = -1;
++	bool last_add = false;
++	static uint16_t order[4096];
++	int ordered;
++
++	if (stats)
++	{
++		stats->quads = frame->count;
++		stats->images_drawn = frame->images_drawn;
++		stats->texels_drawn = frame->texels_drawn;
++		stats->missing = frame->missing;
++		stats->images = pvr_images.images;
++		stats->failed = pvr_images.failed;
++		stats->video_memory_free = (uint32_t)pvr_mem_available();
++	}
++	pvr_wait_ready();
++	ready = timer_us_gettime64();
++	pvr_scene_begin();
++
++	/* the plain colours (the backdrop) in the opaque list, the textured quads punch-through */
++	pvr_list_begin(PVR_LIST_OP_POLY);
++	pvr_poly_cxt_col(&context, PVR_LIST_OP_POLY);
++	context.depth.comparison = PVR_DEPTHCMP_GEQUAL;
++	pvr_poly_compile(&header, &context);
++	send_header(&header);
++	for (int index = 0; index < frame->count; index++)
++	{
++		const s32_scene_quad *quad = &frame->quads[index];
++		s32_scene_quad plain;
++		const uint16_t c = quad->colour;
++		const uint32_t red = (uint32_t)(c >> 10 & 31) * 255 / 31, green = (uint32_t)(c >> 5 & 31) * 255 / 31,
++			blue = (uint32_t)(c & 31) * 255 / 31;
++
++		if (quad->image)
++			continue;
++		/* (the colour itself times the modulate, plus the add, worked out here) */
++		plain = *quad;
++		plain.modulate = 0;
++		for (int shift = 0; shift <= 16; shift += 8)
++		{
++			const uint32_t value = (shift == 16 ? red : shift == 8 ? green : blue) * (quad->modulate >> shift & 255) / 255
++				+ (quad->add >> shift & 255);
++
++			plain.modulate |= (value > 255 ? 255 : value) << shift;
++		}
++		plain.add = 0;
++		quad_vertices(&plain, 1, 1);
++	}
++	pvr_list_finish();
++
++	/* textured quads by image, so that a header is sent once an image (and offset colour): the order does not
++	   matter, depth decides (quads of a layer do not overlap; sprites have depths of their own) */
++	{
++		static uint16_t count[IMAGES + 1];
++		int at = 0;
++
++		memset(count, 0, sizeof(count));
++		for (int index = 0; index < frame->count; index++)
++			if (frame->quads[index].image)
++				count[frame->quads[index].image]++;
++		for (int image = 0; image <= IMAGES; image++)
++		{
++			const int many = count[image];
++
++			count[image] = (uint16_t)at;
++			at += many;
++		}
++		for (int index = 0; index < frame->count; index++)
++			if (frame->quads[index].image)
++				order[count[frame->quads[index].image]++] = (uint16_t)index;
++		ordered = at;
++	}
++	pvr_list_begin(PVR_LIST_PT_POLY);
++	for (int place = 0; place < ordered; place++)
++	{
++		const s32_scene_quad *quad = &frame->quads[order[place]];
++		const bool add = quad->add != 0;
++
++		if (!quad->image || !pvr_images.base[quad->image])
++			continue;
++		if (quad->image != last_image || add != last_add)
++		{
++			pvr_poly_cxt_txr(&context, PVR_LIST_PT_POLY, PVR_TXRFMT_ARGB1555 | PVR_TXRFMT_NONTWIDDLED,
++				pvr_images.width[quad->image], pvr_images.height[quad->image], pvr_images.base[quad->image],
++				PVR_FILTER_NONE);
++			context.depth.comparison = PVR_DEPTHCMP_GEQUAL;
++			context.txr.env = PVR_TXRENV_MODULATE;
++			context.gen.specular = add;
++			pvr_poly_compile(&header, &context);
++			send_header(&header);
++			last_image = quad->image;
++			last_add = add;
++		}
++		quad_vertices(quad, (float)pvr_images.width[quad->image], (float)pvr_images.height[quad->image]);
++	}
++	pvr_list_finish();
++	pvr_scene_finish();
++	if (stats)
++	{
++		stats->build_us = (uint32_t)(built - start);
++		stats->wait_us = (uint32_t)(ready - built);
++		stats->submit_us = (uint32_t)(timer_us_gettime64() - ready);
++	}
++}
+diff --git a/ports/naomi/pvr_video.h b/ports/naomi/pvr_video.h
+new file mode 100644
+index 0000000..a41e82f
+--- /dev/null
++++ b/ports/naomi/pvr_video.h
+@@ -0,0 +1,33 @@
++/**
++ *    Name:        pvr_video.h
++ *    Description: the frame on the NAOMI's PowerVR2 (pvr_video.c)
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ */
++#ifndef ORUNNERS_PVR_VIDEO_H
++#define ORUNNERS_PVR_VIDEO_H
++
++#include <stdint.h>
++
++typedef struct
++{
++	int quads;
++	int images_drawn;          /* this frame: tiles, bitmap rows and sprites (re)made */
++	int texels_drawn;
++	uint32_t missing;          /* S32_SCENE_MISSING_ bits */
++	int images;                /* textures held */
++	int failed;                /* times there was no room for one (all along) */
++	uint32_t video_memory_free;
++	uint32_t build_us;         /* the scene worked out (s32_scene_build) */
++	uint32_t wait_us;          /* waiting for the PowerVR2 to take a new scene */
++	uint32_t submit_us;        /* the quads handed to it */
++} pvr_video_stats;
++
++/* The PowerVR2 on, the scene on it (video.c then draws no sprites of its own) */
++void pvr_video_start(void);
++
++/* The board's frame now, drawn (waits for the PowerVR2 to take a new scene) */
++void pvr_video_frame(pvr_video_stats *stats);
++
++#endif
+diff --git a/ports/naomi/race.py b/ports/naomi/race.py
+new file mode 100644
+index 0000000..bf743ce
+--- /dev/null
++++ b/ports/naomi/race.py
+@@ -0,0 +1,35 @@
++#!/usr/bin/env python3
++"""race.py LIVE_ADDR [SECONDS]: a race with no one at the cabinet (the live block's test_inputs): a coin, START
++pressed until the race starts, then full gas, the wheel swinging a little; the live figures once a second.
++At the end the cabinet's own controls again (test_inputs 0). Runs on the netbooter's Raspberry, as live.py."""
++import sys, time
++sys.path.append('/sbin/piforce/dm_netboot')
++from netdimm import NetDimm, PeekPokeTypeEnum as T
++
++d = NetDimm('10.0.0.4')
++off = lambda a: a & 0x01ffffff
++base = int(sys.argv[1], 0)
++seconds = int(sys.argv[2]) if len(sys.argv) > 2 else 60
++peek = lambda o: d.peek(off(base + o), T.TYPE_LONG)
++poke = lambda o, v: d.poke(off(base + o), T.TYPE_LONG, v)
++if peek(0) != 0x4e55524f:
++    sys.exit('no live block')
++ON = 0x80000000
++poke(0x74, ON | 1)                      # a coin
++time.sleep(1.5)
++for _ in range(12):                     # START through the screens before the race
++    poke(0x74, ON | 2); time.sleep(0.3)
++    poke(0x74, ON); time.sleep(0.7)
++start, last = time.time(), None
++while time.time() - start < seconds:
++    t = time.time() - start
++    wheel = 0x80 + int(40 * ((t // 3) % 3 - 1))
++    poke(0x74, ON | 0xff << 8 | wheel << 16)
++    s = peek(0x08)
++    if s != last:
++        last = s
++        f = [peek(o) for o in (0x0c, 0x14, 0x18, 0x1c, 0x68, 0x6c, 0x70, 0x20, 0x54, 0x58, 0x5c)]
++        print('%4ds  game %2d fps  game %5d  sound %5d  video %5d (build %5d wait %5d submit %4d)  worst %6d  '
++              'quads %3d  texels %6d/s  missing %04x' % ((s,) + tuple(f)), flush=True)
++    time.sleep(0.25)
++poke(0x74, 0)
+diff --git a/runtime/include/s32/video_scene.h b/runtime/include/s32/video_scene.h
+new file mode 100644
+index 0000000..d1d3f32
+--- /dev/null
++++ b/runtime/include/s32/video_scene.h
+@@ -0,0 +1,96 @@
++/**
++ *    Name:        video_scene.h
++ *    Description: the frame as textured quads instead of pixels (ORUNNERS_VIDEO_SCENE): for a GPU that draws
++ *                 them, the NAOMI's PowerVR2 first (ports/naomi/pvr_video.c)
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    What it covers is what OutRunners uses of the chips (docs/outrunners.md of 0skarzer0/naomi-wheel-games): the
++ *    text layer, NBG0 (scroll and zoom), NBG2 (scroll, row scroll, row select), the backdrop, the sprites (zoom,
++ *    flips, 8 bits, indirect colours, the list's clip rectangle) and the mixer's priorities and colour offsets.
++ *    Not covered (yet): NBG1, NBG3, the bitmap, clip windows, blending, shadows, the list's outside clip, the
++ *    screens' flips, WIDE. Left screen only.
++ *
++ *    The scene keeps images of 16-bit pixels (ARGB1555: bit 15 opaque, red in 14-10) that a backend holds
++ *    (in video memory, say): the tilemap pages and the text map, redrawn where their cells or colours change,
++ *    and the sprites' images, one per graphics and colours, kept while they are used. Quads say where an image's
++ *    texels go on the 320 x 224 screen, at what depth (higher in front) and with what colour.
++ */
++#ifndef S32_VIDEO_SCENE_H
++#define S32_VIDEO_SCENE_H
++
++#include <stdbool.h>
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* Where the images live. Sizes are powers of two, at most 1024 x 512 */
++typedef struct
++{
++	void *context;
++	/* an image of width x height texels, its handle (1 or more), or 0 when there is no room */
++	int (*image_create)(void *context, int width, int height);
++	void (*image_free)(void *context, int image);
++	/* width x height texels at (x, y) of an image, 'stride' texels a row in 'pixels'; width is even */
++	void (*image_write)(void *context, int image, int x, int y, int width, int height, const uint16_t *pixels,
++		int stride);
++} s32_scene_backend;
++
++/* One quad: its screen rectangle (pixels, the left and top edges in, the right and bottom out), the image's
++   texels at its corners (u0, v0 at x0, y0; u1, v1 at x1, y1: a flip has them the other way), its depth, and the
++   colour it takes: each channel times modulate's (0-255 each, 0x00RRGGBB: 255 keeps it), plus add's (0-255 each,
++   0x00RRGGBB). Image 0 is no image: a plain 'colour' (ARGB1555, opaque). Texels whose bit 15 is clear are not
++   drawn */
++typedef struct
++{
++	float x0, y0, x1, y1;
++	float u0, v0, u1, v1;
++	float z;
++	int image;
++	uint16_t colour;
++	uint32_t modulate;
++	uint32_t add;
++} s32_scene_quad;
++
++typedef struct
++{
++	const s32_scene_quad *quads;
++	int count;
++	/* what the frame needed that the scene does not cover, as bits (S32_SCENE_MISSING_), for the log */
++	uint32_t missing;
++	/* the work done: images (re)drawn, their texels */
++	int images_drawn;
++	int texels_drawn;
++} s32_scene_frame;
++
++#define S32_SCENE_MISSING_NBG1      0x0001u
++#define S32_SCENE_MISSING_NBG3      0x0002u
++#define S32_SCENE_MISSING_BITMAP    0x0004u
++#define S32_SCENE_MISSING_WINDOWS   0x0008u
++#define S32_SCENE_MISSING_BLEND     0x0010u
++#define S32_SCENE_MISSING_SHADOW    0x0020u
++#define S32_SCENE_MISSING_OUTSIDE   0x0040u
++#define S32_SCENE_MISSING_FLIP      0x0080u
++#define S32_SCENE_MISSING_SHIFT     0x0100u
++#define S32_SCENE_MISSING_IMAGES    0x0200u    /* the backend had no room for an image */
++#define S32_SCENE_MISSING_FROM_RAM  0x0400u
++
++/* Starts the scene on 'backend' (kept by the caller). With 'only', the video draws no sprites into its own
++   buffers any more (s32_video_draw_frame then misses them: the scene alone shows the frame) */
++void s32_scene_start(const s32_scene_backend *backend, bool only);
++
++/* The frame the board shows now, as quads (valid until the next call) */
++const s32_scene_frame *s32_scene_build(void);
++
++/* For comparisons: the scene built each time video.c draws a frame (at the same moment, from the same state),
++   and the last one built so */
++void s32_scene_follow_frames(bool follow);
++const s32_scene_frame *s32_scene_last(void);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/runtime/include/s32/video_scene_soft.h b/runtime/include/s32/video_scene_soft.h
+new file mode 100644
+index 0000000..502c6c1
+--- /dev/null
++++ b/runtime/include/s32/video_scene_soft.h
+@@ -0,0 +1,31 @@
++/**
++ *    Name:        video_scene_soft.h
++ *    Description: the scene (s32/video_scene.h) drawn in software, to set against video.c's frames
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ */
++#ifndef S32_VIDEO_SCENE_SOFT_H
++#define S32_VIDEO_SCENE_SOFT_H
++
++#include "s32/video_scene.h"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* A backend in RAM with room for 'texels' texels (a video memory's budget) */
++const s32_scene_backend *s32_scene_soft_backend(long texels);
++
++/* The frame's quads into 320 x 224 pixels as video.c's frames have them (5-bit channels << 3, 0x00RRGGBB),
++   'stride' pixels a row */
++void s32_scene_soft_draw(const s32_scene_frame *frame, uint32_t *rgb, int stride);
++
++/* An image's texels (for looking at them), or NULL */
++const uint16_t *s32_scene_soft_image(int image, int *width, int *height);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/runtime/src/sound_chips.c b/runtime/src/sound_chips.c
+index e72b4e2..5a89fb8 100644
+--- a/runtime/src/sound_chips.c
++++ b/runtime/src/sound_chips.c
+@@ -190,7 +190,14 @@ static void pcm_catch_up(uint64_t time)
+ 	{
+ 		const int count = due - sound.pcm_samples > 256 ? 256 : (int)(due - sound.pcm_samples);
+ 
++#ifdef ORUNNERS_NO_PCM_SYNTHESIS
++		/* (the NAOMI's first stages: the samples are not in RAM, so the chip would play silence anyway, at a
++		   third of a race's frame on the SH-4; they will play on the AICA) */
++		memset(first, 0, sizeof(first[0]) * (size_t)count);
++		memset(second, 0, sizeof(second[0]) * (size_t)count);
++#else
+ 		multipcm_generate(&sound.pcm, first, second, count);
++#endif
+ 		for (int index = 0; index < count; index++)
+ 			append(&sound.pcm_buffer, first[index], second[index]);
+ 		sound.pcm_samples += (uint64_t)count;
+diff --git a/runtime/src/video.c b/runtime/src/video.c
+index 53ee148..fb2d81a 100644
+--- a/runtime/src/video.c
++++ b/runtime/src/video.c
+@@ -151,6 +151,13 @@ static struct video_state video;
+ 
+ static const uint16_t transparent_row[WIDTH] = { 0 };
+ 
++#ifdef ORUNNERS_VIDEO_SCENE
++/* (video_scene.c, at the end) */
++static void scene_sprites(bool erase, bool draw);
++static bool scene_only(void);
++static void scene_after_draw(void);
++#endif
++
+ /* A sprite pixel's marks (the extra palette's plane) */
+ #define EXTRA_COLOURS 1    /* its colour from the extra palette, where one is set */
+ #define EXTRA_GHOST   2    /* half its colour, half the colour under it */
+@@ -1167,6 +1174,11 @@ static void draw_sprites(int number)
+ 
+ void s32_video_sprites(bool erase, bool draw)
+ {
++#ifdef ORUNNERS_VIDEO_SCENE
++	scene_sprites(erase, draw);
++	if (scene_only())
++		return;
++#endif
+ 	if (erase)
+ 		for (int screen = 0; screen < S32_SCREENS; screen++)
+ 		{
+@@ -1563,6 +1575,9 @@ void s32_video_draw_frame(void)
+ 			drawn = draw_layers(wanted);
+ 		mix(screen, drawn);
+ 	}
++#ifdef ORUNNERS_VIDEO_SCENE
++	scene_after_draw();
++#endif
+ }
+ 
+ void s32_video_show_screens(int screens)
+@@ -1671,3 +1686,7 @@ uint64_t s32_video_frame_hash(void)
+ 					hash = (hash ^ ((video.frame[screen][y][x] >> shift) & 0xff)) * 0x100000001b3ull;
+ 	return hash;
+ }
++
++#ifdef ORUNNERS_VIDEO_SCENE
++#include "video_scene.c"
++#endif
+diff --git a/runtime/src/video_scene.c b/runtime/src/video_scene.c
+new file mode 100644
+index 0000000..b70c9e3
+--- /dev/null
++++ b/runtime/src/video_scene.c
+@@ -0,0 +1,1355 @@
++/**
++ *    Name:        video_scene.c
++ *    Description: the frame as textured quads (s32/video_scene.h): included at the end of video.c with
++ *                 ORUNNERS_VIDEO_SCENE, for its registers' readers and its tiles
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    The same reading of the chips as video.c's (which follows MAME's segas32_v.cpp, Aaron Giles): where video.c
++ *    works out every pixel, this works out the rectangles of texels that make it, for a GPU to draw.
++ *
++ *    - Tilemap pages (512 x 256) and the text map (512 x 256 of 8 x 8 characters) are images, a cell redrawn when
++ *      its word, its colours or (for the text) its character change.
++ *    - NBG0: its scroll and zoom are linear, so its screen splits into the rectangles where the source stays in
++ *      one page. NBG2: line by line (row scroll, row select), the lines that go on from each other joined.
++ *    - The sprites' list is read when the board draws it, as video.c does (into the buffer the next frame shows);
++ *      each sprite is a quad of an image of its graphics in its colours, made once and kept while used.
++ *    - Depth: the mixer's priorities (video.c's mix), the sprites above the layers of the same priority, a later
++ *      sprite above an earlier one. Colour offsets as each layer's modulate and add.
++ */
++
++#include "s32/video_scene.h"
++
++#include <stdio.h>
++
++#define SCENE_QUADS        2048
++#define SCENE_SPRITES      512
++#define SCENE_PAGES        16        /* page images kept: 4 for NBG0 and 4 for NBG2 at most, and the text map */
++#define SCENE_SPRITE_SLOTS 2048      /* sprite images known (a power of two) */
++#define BANKS              (S32_PALETTE_ENTRIES / 16)
++
++/* A sprite of the list as the board drew it */
++typedef struct scene_sprite
++{
++	int x0, y0, x1, y1;              /* on the screen, after the clip (x1, y1 out) */
++	float u0, v0, u1, v1;            /* the image's texels there */
++	uint32_t place;                  /* bank << 20 | the graphics' first word */
++	uint16_t words;                  /* source width, in 32-bit words */
++	uint16_t rows;                   /* source height */
++	bool bits8;
++	bool indirect;
++	bool opaque;                     /* no end codes (flags bit 8) */
++	uint16_t colour;                 /* 0x8000 | the colour word's bits (direct colours) */
++	uint16_t transparent_bits;
++	uint16_t table[16];
++} scene_sprite;
++
++typedef struct scene_page
++{
++	int image;
++	bool text;                       /* the text map, not a tilemap page */
++	int page;                        /* 0-127, or the text map's page */
++	int bank;                        /* tile bank (text: character bank) */
++	uint16_t palette_base;
++	uint8_t shift;
++	uint32_t used;                   /* the frame it was last used */
++	uint16_t cells[2048];            /* their words when drawn (512 for a tilemap page) */
++	uint32_t versions[2048];         /* their colours' version when drawn */
++	bool drawn;
++	uint32_t generation;             /* the palette's when its cells were last checked */
++	uint16_t raw[2048] __attribute__((aligned(4)));    /* the cells' words in video RAM as last checked */
++	uint64_t row_cells[256];         /* each pixel row of the image: the cells (columns of 16 or 8) with a pixel
++	                                    drawn in it, to leave out quads with nothing to show */
++} scene_page;
++
++typedef struct scene_slot
++{
++	uint32_t hash;                   /* 0: free */
++	uint32_t place;
++	uint16_t words, rows;
++	uint16_t colour, transparent_bits;
++	uint16_t table[16];
++	uint16_t palette_base;
++	uint8_t shift, flags;            /* flags: bits8 1, indirect 2, opaque 4 */
++	uint32_t version;                /* of the colours it was drawn with */
++	int image;
++	int width, height;               /* the image's (powers of two) */
++	uint32_t used;
++} scene_slot;
++
++/* A layer's (or a sprite group's) place in the mix */
++typedef struct scene_layer
++{
++	bool shown;
++	float z;
++	uint16_t palette_base;
++	uint8_t shift;
++	uint32_t modulate;
++	uint32_t add;
++} scene_layer;
++
++static struct
++{
++	const s32_scene_backend *backend;
++	bool only;
++	bool follow;                     /* built when video.c draws a frame (s32_scene_follow_frames) */
++	const s32_scene_frame *last;
++	uint32_t frame;
++	s32_scene_frame out;
++	s32_scene_quad quads[SCENE_QUADS];
++	scene_sprite sprites[2][SCENE_SPRITES];
++	int sprite_count[2];
++	int shown;                       /* the sprite list shown, as video.c's shown_sprites */
++	uint16_t palette[S32_PALETTE_ENTRIES] __attribute__((aligned(4)));
++	uint32_t bank_version[BANKS];
++	uint32_t palette_generation;     /* counted up on every frame some colour changed */
++	scene_page pages[SCENE_PAGES];
++	scene_slot slots[SCENE_SPRITE_SLOTS];
++	uint8_t characters[512 * 32];    /* the text bank's graphics when last seen, in their order */
++	uint8_t characters_raw[512 * 32] __attribute__((aligned(4)));    /* ... as they lie in video RAM */
++	bool characters_changed;
++	uint8_t character_changed[512];
++	int character_bank;
++	uint16_t pixels[512 * 256];      /* an image as it is made */
++	uint32_t missing;
++	struct
++	{
++		int image;
++		bool bits8;
++		uint16_t palette_base;
++		uint8_t shift;
++		int colour;
++		uint32_t version;
++		uint32_t stamp;
++		uint32_t row_stamp[512];
++		bool drawn;
++		uint8_t copy[0x20000] __attribute__((aligned(4)));    /* the bitmap's 128 KB of video RAM when last drawn */
++	} bitmap;
++	scene_layer layers[LAYERS];
++	scene_layer groups[16];
++	int group_shift, group_mask, sprite_bits;
++} scene;
++
++/* Whether two blocks are the same, a 32-bit word at a time (both 4-byte aligned, 'bytes' a multiple of 16):
++   newlib's memcmp goes a byte at a time on the SH-4, and the scene compares some 100 KB a frame */
++static bool same(const void *first, const void *second, size_t bytes)
++{
++	const uint32_t *a = (const uint32_t *)first, *b = (const uint32_t *)second;
++
++	if (((uintptr_t)first | (uintptr_t)second) & 3)
++		return memcmp(first, second, bytes) == 0;
++	for (size_t words = bytes / 4; words; words -= 4, a += 4, b += 4)
++		if ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2]) | (a[3] ^ b[3]))
++			return false;
++	return true;
++}
++
++static uint16_t argb1555(uint16_t colour)
++{
++	return (uint16_t)(0x8000 | (colour & 0x1f) << 10 | (colour & 0x3e0) | (colour >> 10 & 0x1f));
++}
++
++static uint16_t palette_index(uint16_t palette_base, int shift, int pixel)
++{
++	return (uint16_t)((palette_base + ((pixel >> shift) & 0xfff0) + (pixel & 0x0f)) & 0x3fff);
++}
++
++/* ---- the palette: a version for each bank of 16 colours, counted up when one of them changes ---- */
++
++static void palette_update(void)
++{
++	const uint16_t *palette = s32_board.palette[0];
++
++	if (same(scene.palette, palette, sizeof(scene.palette)))
++		return;    /* (most frames: one comparison) */
++	scene.palette_generation++;
++	for (int bank = 0; bank < BANKS; bank++)
++		if (!same(&scene.palette[bank * 16], &palette[bank * 16], 32))
++		{
++			memcpy(&scene.palette[bank * 16], &palette[bank * 16], 32);
++			scene.bank_version[bank]++;
++		}
++}
++
++/* ---- the mix: depths and colours of the layers and the sprite groups (video.c's mix) ---- */
++
++/* A layer's colour offsets (0x40-0x44 or 0x46-0x4A, red green blue, -32 to 31 a channel) as a quad's colour:
++   a negative offset scales the channel down ((31 + offset) / 31: the same at the ends, darker in between
++   than adding it), a positive one adds */
++static void colour_of(scene_layer *layer, int offsets)
++{
++	layer->modulate = 0xffffff;
++	layer->add = 0;
++	if (offsets >= 2)
++		return;
++	for (int channel = 0; channel < 3; channel++)
++	{
++		const int offset = sign_extend(mixer_register(0, (offsets ? 0x46u : 0x40u) + 2 * (uint32_t)channel), 6);
++		const int shift = 16 - 8 * channel;    /* red, green, blue: 0x00RRGGBB */
++
++		if (offset < 0)
++			layer->modulate = (layer->modulate & ~(0xffu << shift)) | (uint32_t)(offset <= -31 ? 0 : 255 * (31 + offset) / 31) << shift;
++		else if (offset > 0)
++			layer->add |= (uint32_t)(offset >= 31 ? 255 : 255 * offset / 31) << shift;
++	}
++}
++
++static void mix_update(int drawn)
++{
++	const uint16_t sprite_control = mixer_register(0, 0x4c);
++	const sprite_grouping grouping = groupings[sprite_control & 0x0f];
++
++	if (bit(mixer_register(0, 0x4e), 11))
++		for (int index = LAYER_TEXT; index <= LAYER_BITMAP; index++)
++			if (((mixer_register(0, 0x30 + 2 * (uint32_t)index) >> 6) & 0xff) != 0 && bit((uint32_t)drawn, index))
++				scene.missing |= S32_SCENE_MISSING_BLEND;
++	if (bit(sprite_control, 2))
++		scene.missing |= S32_SCENE_MISSING_SHADOW;
++	for (int index = LAYER_TEXT; index <= LAYER_BITMAP; index++)
++	{
++		const uint16_t control = mixer_register(0, 0x20 + 2 * (uint32_t)index);
++		scene_layer *layer = &scene.layers[index];
++
++		layer->shown = bit((uint32_t)drawn, index) && (control & 0x0f) != 0;
++		layer->z = (float)((control & 0x0f) << 3 | (6 - index));
++		layer->palette_base = (uint16_t)((control & 0x00f0) << 6);
++		layer->shift = (control >> 8) & 3;
++		colour_of(layer, color_offsets(0, bit(mixer_register(0, 0x3e), index),
++			bit(mixer_register(0, 0x30 + 2 * (uint32_t)index), 14)));
++	}
++	{
++		scene_layer *backdrop = &scene.layers[LAYER_BACKDROP];
++
++		backdrop->shown = true;
++		backdrop->z = 1 << 3;
++		backdrop->palette_base = (uint16_t)((mixer_register(0, 0x2c) & 0x00f0) << 6);
++		backdrop->shift = (mixer_register(0, 0x2c) >> 8) & 3;
++		colour_of(backdrop, color_offsets(0, bit(mixer_register(0, 0x3e), 8), bit(mixer_register(0, 0x3e), 14)));
++	}
++	scene.group_shift = grouping.shift;
++	scene.group_mask = grouping.mask;
++	scene.sprite_bits = ((1 << grouping.shift) - 1) & 0x3fff;
++	for (int group = 0; group <= grouping.mask; group++)
++	{
++		const uint16_t control = mixer_register(0, 2 * (uint32_t)(grouping.base | group));
++		scene_layer *sprites = &scene.groups[group];
++
++		sprites->shown = true;
++		sprites->z = (float)((control & 0x0f) << 3 | 7);
++		sprites->palette_base = (uint16_t)((((sprite_control & 3) != 3) ? control : sprite_control) & 0x00f0) << 6;
++		sprites->shift = (control >> 8) & 3;
++		colour_of(sprites, color_offsets(0, bit(mixer_register(0, 0x3e), 6), bit(sprite_control, 15)));
++	}
++}
++
++/* ---- quads ---- */
++
++static s32_scene_quad *new_quad(const scene_layer *layer, int image)
++{
++	s32_scene_quad *quad;
++
++	if (scene.out.count >= SCENE_QUADS)
++		return NULL;
++	quad = &scene.quads[scene.out.count++];
++	quad->z = layer->z;
++	quad->image = image;
++	quad->colour = 0;
++	quad->modulate = layer->modulate;
++	quad->add = layer->add;
++	return quad;
++}
++
++/* ---- room for images: the sprites' used longest ago let go ---- */
++
++static scene_slot *oldest_sprite_image(const scene_slot *keep)
++{
++	scene_slot *oldest = NULL;
++
++	for (int index = 0; index < SCENE_SPRITE_SLOTS; index++)
++	{
++		scene_slot *at = &scene.slots[index];
++
++		if (at->image && at != keep && at->used != scene.frame && (!oldest || at->used < oldest->used))
++			oldest = at;
++	}
++	return oldest;
++}
++
++/* An image, letting old sprite images go while there is no room; 0 if there is none even so */
++static int image_with_room(int width, int height, const scene_slot *keep)
++{
++	int image;
++
++	while (!(image = scene.backend->image_create(scene.backend->context, width, height)))
++	{
++		scene_slot *oldest = oldest_sprite_image(keep);
++
++		if (!oldest)
++		{
++			scene.missing |= S32_SCENE_MISSING_IMAGES;
++			return 0;
++		}
++		scene.backend->image_free(scene.backend->context, oldest->image);
++		oldest->image = 0;
++	}
++	return image;
++}
++
++/* ---- tilemap pages and the text map as images ---- */
++
++static scene_page *page_of(bool text, int page, int bank, const scene_layer *layer)
++{
++	scene_page *choice = NULL;
++
++	for (int index = 0; index < SCENE_PAGES; index++)
++	{
++		scene_page *entry = &scene.pages[index];
++
++		if (entry->image && entry->text == text && entry->page == page && entry->bank == bank
++			&& entry->palette_base == layer->palette_base && entry->shift == layer->shift)
++		{
++			entry->used = scene.frame;
++			return entry;
++		}
++	}
++	/* a free entry, else the one used longest ago (not in this frame) */
++	for (int index = 0; index < SCENE_PAGES; index++)
++	{
++		scene_page *entry = &scene.pages[index];
++
++		if (!entry->image)
++		{
++			choice = entry;
++			break;
++		}
++		if (entry->used != scene.frame && (!choice || entry->used < choice->used))
++			choice = entry;
++	}
++	if (!choice)
++		return NULL;
++	if (!choice->image && !(choice->image = image_with_room(512, 256, NULL)))
++		return NULL;
++	choice->text = text;
++	choice->page = page;
++	choice->bank = bank;
++	choice->palette_base = layer->palette_base;
++	choice->shift = layer->shift;
++	choice->used = scene.frame;
++	choice->drawn = false;
++	memset(choice->row_cells, 0, sizeof(choice->row_cells));
++	return choice;
++}
++
++/* A tilemap page's cells that changed, redrawn in its image */
++static void page_update(scene_page *entry)
++{
++	const uint16_t *now = (const uint16_t *)&s32_board.video_ram[(size_t)entry->page << 10];
++
++	/* (nothing to do when neither its cells nor any colour changed: one comparison of 1 KB) */
++	if (entry->drawn && entry->generation == scene.palette_generation && same(entry->raw, now, 1024))
++		return;
++	entry->generation = scene.palette_generation;
++	memcpy(entry->raw, now, 1024);
++	for (uint32_t cell = 0; cell < 512; cell++)
++	{
++		const uint16_t word = video_word((uint32_t)entry->page << 9 | cell);
++		const int colour = (word >> 4) & 0x1ff;
++		const uint32_t version = scene.bank_version[palette_index(entry->palette_base, entry->shift, colour << 4) >> 4];
++		uint16_t pixels[256];
++
++		if (entry->drawn && entry->cells[cell] == word && entry->versions[cell] == version)
++			continue;
++		entry->cells[cell] = word;
++		entry->versions[cell] = version;
++		{
++			/* the cell's 16 colours once, then its pens through them, a row at a time */
++			const uint32_t tile = ((uint32_t)entry->bank << 13 | (word & 0x1fff)) % video.graphics.tile_count;
++			const uint8_t *pens = video.graphics.tile_pens[tile];
++			uint16_t colours[16];
++
++			colours[0] = 0;
++			for (int pen = 1; pen < 16; pen++)
++				colours[pen] = argb1555(scene.palette[palette_index(entry->palette_base, entry->shift, colour << 4 | pen)]);
++			for (int y = 0; y < 16; y++)
++			{
++				const int line = (word & 0x8000) ? 15 - y : y;
++				uint16_t *out = &pixels[y * 16];
++				uint16_t any = 0;
++
++				for (int x = 0; x < 16; x++)
++				{
++					const int column = (word & 0x4000) ? 15 - x : x;
++#ifdef ORUNNERS_PACKED_PENS
++					const int pen = (pens[(line * 16 + column) >> 1] >> ((column & 1) << 2)) & 15;
++#else
++					const int pen = pens[line * 16 + column];
++#endif
++					out[x] = colours[pen];
++					any |= out[x];
++				}
++				if (any)
++					entry->row_cells[(cell >> 5) * 16 + (uint32_t)y] |= 1ull << (cell & 31);
++				else
++					entry->row_cells[(cell >> 5) * 16 + (uint32_t)y] &= ~(1ull << (cell & 31));
++			}
++		}
++		scene.backend->image_write(scene.backend->context, entry->image, (int)(cell & 31) * 16, (int)(cell >> 5) * 16,
++			16, 16, pixels, 16);
++		scene.out.images_drawn++;
++		scene.out.texels_drawn += 256;
++	}
++	entry->drawn = true;
++}
++
++/* The text map's cells that changed, or whose character did, redrawn */
++static void text_update(scene_page *entry)
++{
++	const uint16_t control = video_register(0x5c);
++	const int bank = control & 7;
++
++	/* the characters: 512 of 32 bytes from bank * 512, compared as they lie in video RAM (16 KB) */
++	{
++		const uint8_t *raw = &s32_board.video_ram[(size_t)bank << 14];
++
++		memset(scene.character_changed, 0, sizeof(scene.character_changed));
++		scene.characters_changed = scene.character_bank != bank || !same(scene.characters_raw, raw, sizeof(scene.characters_raw));
++		if (scene.characters_changed)
++			for (int character = 0; character < 512; character++)
++				if (scene.character_bank != bank || !same(&scene.characters_raw[character * 32], &raw[character * 32], 32))
++				{
++					memcpy(&scene.characters_raw[character * 32], &raw[character * 32], 32);
++					for (int index = 0; index < 32; index++)
++						scene.characters[character * 32 + index] = video_byte(((uint32_t)bank << 9 | (uint32_t)character) * 32 + (uint32_t)index);
++					scene.character_changed[character] = 1;
++				}
++	}
++	scene.character_bank = bank;
++	{
++		const uint16_t *now = (const uint16_t *)&s32_board.video_ram[(size_t)entry->page << 12];
++
++		if (entry->drawn && !scene.characters_changed && entry->generation == scene.palette_generation
++			&& same(entry->raw, now, 4096))
++			return;
++		entry->generation = scene.palette_generation;
++		memcpy(entry->raw, now, 4096);
++	}
++	for (uint32_t cell = 0; cell < 2048; cell++)
++	{
++		const uint16_t word = video_word((uint32_t)entry->page << 11 | cell);
++		const int colour = (word >> 9) & 0x7f;
++		const int character = word & 0x1ff;
++		const uint32_t version = scene.bank_version[palette_index(entry->palette_base, entry->shift, colour << 4) >> 4];
++		uint16_t pixels[64];
++
++		if (entry->drawn && entry->cells[cell] == word && entry->versions[cell] == version
++			&& !scene.character_changed[character])
++			continue;
++		entry->cells[cell] = word;
++		entry->versions[cell] = version;
++		for (int y = 0; y < 8; y++)
++			for (int x = 0; x < 8; x++)
++			{
++				const uint8_t value = scene.characters[character * 32 + y * 4 + x / 2];
++				const int pen = (x & 1) ? (value & 0x0f) : (value >> 4);
++
++				pixels[y * 8 + x] = pen ? argb1555(scene.palette[palette_index(entry->palette_base, entry->shift,
++					colour << 4 | pen)]) : 0;
++			}
++		for (int y = 0; y < 8; y++)
++		{
++			bool any = false;
++
++			for (int x = 0; x < 8; x++)
++				any = any || pixels[y * 8 + x] != 0;
++			if (any)
++				entry->row_cells[(cell >> 6) * 8 + (uint32_t)y] |= 1ull << (cell & 63);
++			else
++				entry->row_cells[(cell >> 6) * 8 + (uint32_t)y] &= ~(1ull << (cell & 63));
++		}
++		scene.backend->image_write(scene.backend->context, entry->image, (int)(cell & 63) * 8, (int)(cell >> 6) * 8,
++			8, 8, pixels, 8);
++		scene.out.images_drawn++;
++		scene.out.texels_drawn += 64;
++	}
++	entry->drawn = true;
++}
++
++/* A quad of a page's texels: screen x0-x1, y0-y1, its source from (u0, v0) by (du, dv) a pixel */
++static void page_quad(const scene_layer *layer, scene_page *entry, float x0, float y0, float x1, float y1,
++	float u0, float v0, float du, float dv)
++{
++	s32_scene_quad *quad;
++	const float u1 = u0 + (x1 - x0) * du, v1 = v0 + (y1 - y0) * dv;
++
++	if (!entry)
++		return;
++	{
++		/* nothing drawn in the texels it covers: no quad */
++		const int cell_width = entry->text ? 8 : 16;
++		const int first_row = (int)v0 < 0 ? 0 : (int)v0, last_row = (int)v1 > 255 ? 255 : (int)v1;
++		const int first_cell = ((int)u0 < 0 ? 0 : (int)u0) / cell_width;
++		const int last_cell = ((int)u1 > 511 ? 511 : (int)u1) / cell_width;
++		const uint64_t cells = (last_cell >= 63 ? ~0ull : (2ull << last_cell) - 1) & ~((1ull << first_cell) - 1);
++		uint64_t drawn = 0;
++
++		for (int row = first_row; row <= last_row && !(drawn & cells); row++)
++			drawn |= entry->row_cells[row];
++		if (!(drawn & cells))
++			return;
++	}
++	if (!(quad = new_quad(layer, entry->image)))
++		return;
++	quad->x0 = x0;
++	quad->y0 = y0;
++	quad->x1 = x1;
++	quad->y1 = y1;
++	quad->u0 = u0;
++	quad->v0 = v0;
++	quad->u1 = u1;
++	quad->v1 = v1;
++}
++
++/* NBG0 or NBG1: video.c's draw_zoomed, as rectangles. Source columns in 12.20 (bit 29: which page across),
++   rows too (bit 28: which page down) */
++static void zoomed_quads(int number)
++{
++	const uint32_t scroll = 0x10 + 8 * (uint32_t)number;
++	const uint32_t center = 0x30 + 4 * (uint32_t)number;
++	const scene_layer *layer = &scene.layers[LAYER_NBG0 + number];
++	int pages[4];
++	const int bank = pages_of(number, pages);
++	bool flip_x, flip_y;
++	int x_zoom = video_register(0x50 + 4 * (uint32_t)number) & 0xfff;
++	int y_zoom = bit(video_register(0x00), 14) ? video_register(0x52 + 4 * (uint32_t)number) & 0xfff : x_zoom;
++	uint32_t x_step, y_step, x_start, source_y;
++	scene_page *entries[4];
++
++	if (bit(video_register(0x02), 11 + number))
++		scene.missing |= S32_SCENE_MISSING_WINDOWS;
++	flips_of(number, &flip_x, &flip_y);
++	if (flip_x || flip_y)
++	{
++		scene.missing |= S32_SCENE_MISSING_FLIP;
++		return;
++	}
++	if (x_zoom < 0x80)
++		x_zoom = 0x80;
++	if (y_zoom < 0x80)
++		y_zoom = 0x80;
++	x_step = (0x200u << 20) / (uint32_t)x_zoom;
++	y_step = (0x200u << 20) / (uint32_t)y_zoom;
++	x_start = (uint32_t)(video_register(scroll + 2) & 0x3ff) << 20;
++	x_start += (uint32_t)(video_register(scroll) & 0xff00) << 4;
++	source_y = (uint32_t)(video_register(scroll + 6) & 0x1ff) << 20;
++	source_y += (uint32_t)(video_register(scroll + 4) & 0xfe00) << 4;
++	x_start -= (uint32_t)sign_extend(video_register(center), x_zoom != 0x200 ? 10 : 9) * x_step;
++	source_y -= (uint32_t)sign_extend(video_register(center + 2), y_zoom != 0x200 ? 10 : 9) * y_step;
++
++	for (int index = 0; index < 4; index++)
++	{
++		bool again = false;
++
++		for (int earlier = 0; earlier < index; earlier++)
++			if (pages[earlier] == pages[index])
++			{
++				entries[index] = entries[earlier];
++				again = true;
++			}
++		if (!again && (entries[index] = page_of(false, pages[index], bank, layer)) != NULL)
++			page_update(entries[index]);
++	}
++
++	/* rows: where the source crosses into the other half (256 rows) */
++	for (int y = 0; y < HEIGHT;)
++	{
++		const uint32_t row = source_y + (uint32_t)y * y_step;
++		const uint32_t to_edge = (1u << 28) - (row & ((1u << 28) - 1));
++		int rows = (int)((to_edge + y_step - 1) / y_step);
++		const int half = (row >> 27) & 2;
++
++		if (rows > HEIGHT - y)
++			rows = HEIGHT - y;
++		for (int x = 0; x < S32_VIDEO_MAX_WIDTH && x < 320;)
++		{
++			const uint32_t column = x_start + (uint32_t)x * x_step;
++			const uint32_t to_side = (1u << 29) - (column & ((1u << 29) - 1));
++			int columns = (int)((to_side + x_step - 1) / x_step);
++
++			if (columns > 320 - x)
++				columns = 320 - x;
++			/* (pixel k takes column (start + k * step) >> 20: its centre lands there, a 1/512 texel past) */
++			page_quad(layer, entries[half + ((column >> 29) & 1)], (float)x, (float)y, (float)(x + columns),
++				(float)(y + rows), (float)(column & ((1u << 29) - 1)) / (1 << 20) - 0.5f * (float)x_step / (1 << 20) + 1.0f / 512,
++				(float)(row & ((1u << 28) - 1)) / (1 << 20) - 0.5f * (float)y_step / (1 << 20) + 1.0f / 512,
++				(float)x_step / (1 << 20), (float)y_step / (1 << 20));
++			x += columns;
++		}
++		y += rows;
++	}
++}
++
++/* NBG2 or NBG3: video.c's draw_scrolled, line by line; lines that go on from the one above join it */
++static void scrolled_quads(int number)
++{
++	const uint16_t line_control = video_register(0x04);
++	const bool line_windows = bit(line_control, number + 2);
++	const uint32_t table = (uint32_t)(line_control >> 10) * 0x400 + 0x100 * (uint32_t)(number - 2);
++	const bool row_scroll = bit(line_control, number - 2) && !line_windows;
++	const bool row_select = bit(line_control, number) && !line_windows;
++	const int x_scroll = (video_register(0x12 + 8 * (uint32_t)number) & 0x3ff) - (video_register(0x30 + 4 * (uint32_t)number) & 0x1ff);
++	const int y_scroll = video_register(0x16 + 8 * (uint32_t)number) & 0x1ff;
++	const scene_layer *layer = &scene.layers[LAYER_NBG0 + number];
++	int pages[4];
++	const int bank = pages_of(number, pages);
++	scene_page *entries[4];
++	bool flip_x, flip_y;
++	int run_start = 0, run_column = 0, run_source = 0;
++
++	if (bit(video_register(0x02), 11 + number) || line_windows)
++		scene.missing |= S32_SCENE_MISSING_WINDOWS;
++	flips_of(number, &flip_x, &flip_y);
++	if (flip_x || flip_y)
++	{
++		scene.missing |= S32_SCENE_MISSING_FLIP;
++		return;
++	}
++	for (int index = 0; index < 4; index++)
++	{
++		bool again = false;
++
++		for (int earlier = 0; earlier < index; earlier++)
++			if (pages[earlier] == pages[index])
++			{
++				entries[index] = entries[earlier];
++				again = true;
++			}
++		if (!again && (entries[index] = page_of(false, pages[index], bank, layer)) != NULL)
++			page_update(entries[index]);
++	}
++	for (int y = 0; y <= HEIGHT; y++)
++	{
++		int column = 0, source = 0;
++
++		if (y < HEIGHT)
++		{
++			column = x_scroll;
++			source = y_scroll + y;
++			if (row_scroll)
++				column += video_word(table + (uint32_t)y) & 0x3ff;
++			if (row_select)
++				source = y_scroll + video_word(table + 0x200 + (uint32_t)y);
++			column &= 0x3ff;
++			source &= 0x1ff;
++		}
++		/* a run goes on while the column stays and the source row is the next one in the same half */
++		if (y > run_start && y < HEIGHT && column == run_column && source == ((run_source + (y - run_start)) & 0x1ff)
++			&& (source & 0x100) == (run_source & 0x100))
++			continue;
++		if (y > run_start)
++		{
++			const int half = (run_source >> 7) & 2;
++			const int first = 512 - (run_column & 0x1ff);
++			const int width = first < 320 ? first : 320;
++
++			page_quad(layer, entries[half + ((run_column >> 9) & 1)], 0, (float)run_start, (float)width, (float)y,
++				(float)(run_column & 0x1ff), (float)(run_source & 0xff), 1, 1);
++			if (width < 320)
++				page_quad(layer, entries[half + (((run_column >> 9) & 1) ^ 1)], (float)width, (float)run_start, 320,
++					(float)y, 0, (float)(run_source & 0xff), 1, 1);
++		}
++		run_start = y;
++		run_column = column;
++		run_source = source;
++	}
++}
++
++static void text_quads(void)
++{
++	const uint16_t control = video_register(0x5c);
++	const scene_layer *layer = &scene.layers[LAYER_TEXT];
++	scene_page *entry;
++
++	if (bit(video_register(0x00), 9))
++	{
++		scene.missing |= S32_SCENE_MISSING_FLIP;
++		return;
++	}
++	if ((entry = page_of(true, (control >> 4) & 0x1f, control & 7, layer)) == NULL)
++		return;
++	text_update(entry);
++	page_quad(layer, entry, 0, 0, 320, HEIGHT, 0, 0, 1, 1);
++}
++
++/* ---- the bitmap layer: 512 pixels a row from the start of video RAM (video.c's draw_bitmap) ---- */
++
++/* The colours' version of the bitmap: its bank, or the 16 of its 8-bit pixels */
++static uint32_t bitmap_version(void)
++{
++	uint32_t version = 0;
++
++	for (int high = 0; high < (scene.bitmap.bits8 ? 16 : 1); high++)
++		version = version * 31 + scene.bank_version[palette_index(scene.bitmap.palette_base, scene.bitmap.shift,
++			(scene.bitmap.colour + (high << 4)) & 0x1fff) >> 4];
++	return version;
++}
++
++/* The rows of the bitmap that changed (or all, when its colours did), into its image */
++static void bitmap_update(void)
++{
++	const scene_layer *layer = &scene.layers[LAYER_BITMAP];
++	const bool bits8 = bit(video_register(0x00), 11);
++	const int colour = (video_register(0x8c) << 4) & 0x1fff0 & ~((1 << (bits8 ? 8 : 4)) - 1);
++	const int rows = bits8 ? 256 : 512;
++	const int row_bytes = bits8 ? 512 : 256;
++	static uint16_t colours[256];
++	bool all;
++	uint32_t version;
++
++	if (scene.bitmap.image && scene.bitmap.bits8 != bits8)
++	{
++		scene.backend->image_free(scene.backend->context, scene.bitmap.image);
++		scene.bitmap.image = 0;
++	}
++	if (!scene.bitmap.image)
++	{
++		if (!(scene.bitmap.image = image_with_room(512, rows, NULL)))
++			return;
++		scene.bitmap.drawn = false;
++	}
++	scene.bitmap.bits8 = bits8;
++	/* a change of its colours (or a new image) changes the stamp: each row is redrawn when it is on the screen
++	   with an older stamp, or its pixels changed */
++	all = !scene.bitmap.drawn || scene.bitmap.colour != colour || scene.bitmap.palette_base != layer->palette_base
++		|| scene.bitmap.shift != layer->shift;
++	scene.bitmap.colour = colour;
++	scene.bitmap.palette_base = layer->palette_base;
++	scene.bitmap.shift = layer->shift;
++	version = bitmap_version();
++	if (all || version != scene.bitmap.version)
++		scene.bitmap.stamp++;
++	scene.bitmap.version = version;
++	{
++		/* (its colours once: 16, or 256 for 8 bits) */
++		colours[0] = 0;
++		for (int value = 1; value < (bits8 ? 256 : 16); value++)
++			colours[value] = argb1555(scene.palette[palette_index(layer->palette_base, layer->shift, (value + colour) & 0x1fff)]);
++	}
++	for (int line = 0; line < HEIGHT; line++)
++	{
++		const int row = (line + (video_register(0x8a) & 0x1ff)) & (rows - 1);
++		const uint8_t *now = &s32_board.video_ram[row * row_bytes];
++		uint8_t *copy = &scene.bitmap.copy[row * row_bytes];
++		uint16_t *out = scene.pixels;
++
++		if (scene.bitmap.row_stamp[row] == scene.bitmap.stamp && same(now, copy, (size_t)row_bytes))
++			continue;
++		scene.bitmap.row_stamp[row] = scene.bitmap.stamp;
++		memcpy(copy, now, (size_t)row_bytes);
++		for (int column = 0; column < 512; column++)
++		{
++			int value;
++
++			if (bits8)
++				value = video_byte((uint32_t)(row * 512 + column));
++			else
++				value = (video_word((uint32_t)(row * 128 + column / 4)) >> (4 * (column & 3))) & 0x0f;
++			out[column] = colours[value];
++		}
++		scene.backend->image_write(scene.backend->context, scene.bitmap.image, 0, row, 512, 1, out, 512);
++		scene.out.images_drawn++;
++		scene.out.texels_drawn += 512;
++	}
++	scene.bitmap.drawn = true;
++}
++
++/* Quads of a plane that wraps (width x height texels, scrolled by x_scroll, y_scroll) over a screen rectangle */
++static void wrapped_quads(const scene_layer *layer, int image, int width, int height, int x_scroll, int y_scroll,
++	int left, int top, int right, int bottom)
++{
++	for (int y = top; y < bottom;)
++	{
++		const int v = ((y + y_scroll) % height + height) % height;
++		const int rows = (height - v) < (bottom - y) ? (height - v) : (bottom - y);
++
++		for (int x = left; x < right;)
++		{
++			const int u = ((x + x_scroll) % width + width) % width;
++			const int columns = (width - u) < (right - x) ? (width - u) : (right - x);
++			s32_scene_quad *quad = new_quad(layer, image);
++
++			if (quad)
++			{
++				quad->x0 = (float)x;
++				quad->y0 = (float)y;
++				quad->x1 = (float)(x + columns);
++				quad->y1 = (float)(y + rows);
++				quad->u0 = (float)u;
++				quad->v0 = (float)v;
++				quad->u1 = (float)(u + columns);
++				quad->v1 = (float)(v + rows);
++			}
++			x += columns;
++		}
++		y += rows;
++	}
++}
++
++/* The bitmap through window 4 when its clip is on (0x02 bit 15; bit 10 draws it outside the window instead) */
++static void bitmap_quads(void)
++{
++	const scene_layer *layer = &scene.layers[LAYER_BITMAP];
++	const int x_scroll = video_register(0x88) & 0x1ff;
++	const int y_scroll = video_register(0x8a) & 0x1ff;
++	area rectangles[4];
++	int count = 0;
++
++	bitmap_update();
++	if (!scene.bitmap.image)
++		return;
++	if (!bit(video_register(0x02), 15))
++		rectangles[count++] = (area){ 0, 320, 0, HEIGHT };
++	else
++	{
++		const area edges = { 0, 320, 0, HEIGHT };
++		area window;
++
++		window_of(4, false, &window);
++		clip_area(&window, &edges);
++		if (!bit(video_register(0x02), 10))
++		{
++			if (window.left < window.right && window.top < window.bottom)
++				rectangles[count++] = window;
++		}
++		else
++		{
++			/* outside it: above, below, and the two sides of its rows */
++			if (window.left >= window.right || window.top >= window.bottom)
++				rectangles[count++] = edges;
++			else
++			{
++				rectangles[count++] = (area){ 0, 320, 0, window.top };
++				rectangles[count++] = (area){ 0, 320, window.bottom, HEIGHT };
++				rectangles[count++] = (area){ 0, window.left, window.top, window.bottom };
++				rectangles[count++] = (area){ window.right, 320, window.top, window.bottom };
++			}
++		}
++	}
++	for (int index = 0; index < count; index++)
++		if (rectangles[index].left < rectangles[index].right && rectangles[index].top < rectangles[index].bottom)
++			wrapped_quads(layer, scene.bitmap.image, 512, scene.bitmap.bits8 ? 256 : 512, x_scroll, y_scroll,
++				rectangles[index].left, rectangles[index].top, rectangles[index].right, rectangles[index].bottom);
++}
++
++static void backdrop_quads(void)
++{
++	const uint16_t control = video_register(0x5e);
++	const scene_layer *layer = &scene.layers[LAYER_BACKDROP];
++	int run_start = 0;
++	uint16_t run_colour = 0;
++
++	for (int y = 0; y <= HEIGHT; y++)
++	{
++		uint16_t colour = 0;
++
++		if (y < HEIGHT)
++		{
++			const int pixel = (control & 0x1e00) + (bit(control, 15) ? (control + y) & 0x1ff : 0);
++
++			colour = argb1555(scene.palette[palette_index(layer->palette_base, layer->shift, pixel)]);
++			if (y > run_start && colour == run_colour)
++				continue;
++		}
++		if (y > run_start)
++		{
++			s32_scene_quad *quad = new_quad(layer, 0);
++
++			if (quad)
++			{
++				quad->x0 = 0;
++				quad->y0 = (float)run_start;
++				quad->x1 = 320;
++				quad->y1 = (float)y;
++				quad->u0 = quad->v0 = quad->u1 = quad->v1 = 0;
++				quad->colour = run_colour;
++			}
++		}
++		run_start = y;
++		run_colour = colour;
++	}
++}
++
++/* ---- sprites ---- */
++
++/* The list as video.c's draw_sprite_list reads it, each sprite kept as a scene_sprite in list 'into' */
++static int scene_sprite_entry(int into, uint32_t entry, int x_offset, int y_offset, const area *inside, const area *outside)
++{
++	static const uint16_t transparent_bits[4][4] = {
++		{ 0x7fff, 0x3fff, 0x1fff, 0x0fff },
++		{ 0x3fff, 0x1fff, 0x0fff, 0x07ff },
++		{ 0x3fff, 0x1fff, 0x0fff, 0x07ff },
++		{ 0x1fff, 0x0fff, 0x07ff, 0x03ff }
++	};
++	const uint8_t *latched = s32_board.sprite_control_latched;
++	const uint16_t flags = sprite_word(entry);
++	const uint16_t size = sprite_word(entry + 1);
++	const uint16_t height_word = sprite_word(entry + 2);
++	const uint16_t width_word = sprite_word(entry + 3);
++	const bool table_inline = bit(flags, 12);
++	const int taken = (bit(flags, 13) && table_inline) ? 2 : 0;
++	const int source_height = size >> 8;
++	const int height = height_word & 0x3ff;
++	const int width = width_word & 0x3ff;
++	const uint32_t bank = ((width_word & 0x2000) >> 13 | (width_word & 0x8000) >> 14) % (video.graphics.sprite_banks ? video.graphics.sprite_banks : 1);
++	scene_sprite *sprite;
++	int source_width, x, y;
++	float u0, u1, v0, v1;
++	area clip = *inside;
++
++	if (bit(width_word, 11))
++		return taken;    /* (the right screen's) */
++	if (scene.sprite_count[into] >= SCENE_SPRITES)
++		return taken;
++	sprite = &scene.sprites[into][scene.sprite_count[into]];
++	sprite->bits8 = bit(flags, 9);
++	sprite->indirect = bit(flags, 13);
++	sprite->opaque = bit(flags, 8);
++	source_width = sprite->bits8 ? (size & 0x3f) : ((size >> 1) & 0x3f);
++	if (source_width == 0 || source_height == 0 || width == 0 || height == 0)
++		return taken;
++	if (bit(flags, 10))
++	{
++		scene.missing |= S32_SCENE_MISSING_FROM_RAM;
++		return taken;
++	}
++	if (bit(flags, 11) && bit(latched[5], 0))
++	{
++		scene.missing |= S32_SCENE_MISSING_SHADOW;
++		return taken;
++	}
++	sprite->colour = (uint16_t)(0x8000 | (sprite_word(entry + 7) & (sprite->bits8 ? 0x7f00 : 0x7ff0)));
++	sprite->transparent_bits = transparent_bits[latched[4] & 3][latched[5] & 3];
++	if (sprite->bits8)
++		sprite->transparent_bits &= 0xfff0;
++	memset(sprite->table, 0, sizeof(sprite->table));
++	if (sprite->indirect)
++	{
++		const uint32_t table = table_inline ? entry + 8 : 8 * (uint32_t)(sprite_word(entry + 7) & 0x1fff);
++
++		for (int index = 0; index < 16; index++)
++			sprite->table[index] = (uint16_t)((sprite_word(table + (uint32_t)index) & (sprite->bits8 ? 0xfff0 : 0xffff)) |
++				(bit(latched[5], 0) ? 0x8000 : 0));
++		sprite->colour = 0;
++	}
++	sprite->place = bank << 20 | ((sprite_word(entry + 6) | (uint32_t)(height_word & 0xf000) << 4) & 0xfffff);
++	sprite->words = (uint16_t)source_width;
++	sprite->rows = (uint16_t)source_height;
++
++	x = sign_extend(sprite_word(entry + 5), 12) + (bit(flags, 4) ? x_offset : 0);
++	y = sign_extend(sprite_word(entry + 4), 12) + (bit(flags, 5) ? y_offset : 0);
++	switch (flags & 3)
++	{
++		case 0:
++		case 3: x -= (width - 1) / 2; break;
++		case 1: x -= width - 1; break;
++		default: break;
++	}
++	switch ((flags >> 2) & 3)
++	{
++		case 0:
++		case 3: y -= (height - 1) / 2; break;
++		case 1: y -= height - 1; break;
++		default: break;
++	}
++	/* the screen rectangle and the texels at its edges. video.c steps through the source by its zoom
++	   (pens a pixel, in 16.16, rounded down): pixel k of the sprite takes pen k * zoom >> 16, counted from the
++	   right edge when flipped. The quad's texels are set so that the pixels' centres land on those (a 1/512
++	   texel past them: no texel's edge) */
++	{
++		const float x_step = (float)(((sprite->bits8 ? 4 : 8) * source_width << 16) / width) / 65536.0f;
++		const float y_step = (float)((source_height << 16) / height) / 65536.0f;
++		const float near_x = -0.5f * x_step + 1.0f / 512, far_x = ((float)width - 0.5f) * x_step + 1.0f / 512;
++		const float near_y = -0.5f * y_step + 1.0f / 512, far_y = ((float)height - 0.5f) * y_step + 1.0f / 512;
++
++		u0 = bit(flags, 6) ? far_x : near_x;
++		u1 = bit(flags, 6) ? near_x : far_x;
++		v0 = bit(flags, 7) ? far_y : near_y;
++		v1 = bit(flags, 7) ? near_y : far_y;
++	}
++	if (outside->right >= outside->left && outside->bottom >= outside->top
++		&& outside->right >= x && outside->left < x + width && outside->bottom >= y && outside->top < y + height)
++		scene.missing |= S32_SCENE_MISSING_OUTSIDE;
++	{
++		int x0 = x, y0 = y, x1 = x + width, y1 = y + height;
++		const float du = (u1 - u0) / (float)width, dv = (v1 - v0) / (float)height;
++
++		if (x0 < clip.left)
++			x0 = clip.left;
++		if (y0 < clip.top)
++			y0 = clip.top;
++		if (x1 > clip.right + 1)
++			x1 = clip.right + 1;
++		if (y1 > clip.bottom + 1)
++			y1 = clip.bottom + 1;
++		if (x0 >= x1 || y0 >= y1)
++			return taken;
++		sprite->x0 = x0;
++		sprite->y0 = y0;
++		sprite->x1 = x1;
++		sprite->y1 = y1;
++		sprite->u0 = u0 + (float)(x0 - x) * du;
++		sprite->u1 = u0 + (float)(x1 - x) * du;
++		sprite->v0 = v0 + (float)(y0 - y) * dv;
++		sprite->v1 = v0 + (float)(y1 - y) * dv;
++	}
++	scene.sprite_count[into]++;
++	return taken;
++}
++
++static void scene_sprite_list(int into, int number)
++{
++	const area screen = { 0, 319, 0, HEIGHT - 1 };
++	area inside = screen;
++	area outside = { 0, -1, 0, -1 };
++	int x_offset = 0, y_offset = 0;
++
++	for (int entries = 0; entries < 0x20000 / 16; entries++)
++	{
++		const uint32_t entry = 8 * (uint32_t)(number & 0x1fff);
++		const uint16_t command = sprite_word(entry);
++
++		switch (command >> 14)
++		{
++			case 0:
++				number += 1 + scene_sprite_entry(into, entry, x_offset, y_offset, &inside, &outside);
++				break;
++			case 1:
++				if (bit(command, 12))
++				{
++					inside.left = sign_extend(sprite_word(entry + 2), 12);
++					inside.right = sign_extend(sprite_word(entry + 3), 12);
++					inside.top = sign_extend(command, 12);
++					inside.bottom = sign_extend(sprite_word(entry + 1), 12);
++					clip_area(&inside, &screen);
++				}
++				if (bit(command, 13))
++				{
++					outside.left = sign_extend(sprite_word(entry + 6), 12);
++					outside.right = sign_extend(sprite_word(entry + 7), 12);
++					outside.top = sign_extend(sprite_word(entry + 4), 12);
++					outside.bottom = sign_extend(sprite_word(entry + 5), 12);
++				}
++				number++;
++				break;
++			case 2:
++				if (bit(command, 13))
++				{
++					y_offset = sign_extend(sprite_word(entry + 1), 12);
++					x_offset = sign_extend(sprite_word(entry + 2), 12);
++				}
++				number = command & 0x1fff;
++				break;
++			default:
++				return;
++		}
++	}
++}
++
++/* video.c's s32_video_sprites, for the scene's lists */
++static void scene_sprites(bool erase, bool draw)
++{
++	if (!scene.backend)
++		return;
++	if (erase)
++		scene.sprite_count[scene.shown] = 0;
++	if (draw)
++	{
++		scene.shown ^= 1;
++		scene_sprite_list(scene.shown ^ 1, 0);
++	}
++}
++
++/* The pixel a pen of a sprite puts in the buffer (video.c's put_sprite_pixel), or -1 for none */
++static int sprite_pixel(const scene_slot *slot, int pen)
++{
++	int pixel;
++
++	if (!(slot->flags & 2))
++		return pen ? (slot->colour | pen) : -1;
++	pixel = (slot->flags & 1) ? slot->table[pen >> 4] | (pen & 0x0f) : slot->table[pen];
++	return (pixel & slot->transparent_bits) == slot->transparent_bits ? -1 : pixel;
++}
++
++/* The sprite's group: of its colour word, or of its table's first colour */
++static int sprite_group(const scene_sprite *sprite)
++{
++	const int pixel = sprite->indirect ? sprite->table[1] : sprite->colour;
++
++	return (pixel >> scene.group_shift) & scene.group_mask;
++}
++
++/* The version of the colours a sprite's image takes: of the banks its pens' colours are in */
++static uint32_t sprite_version(const scene_slot *slot)
++{
++	uint32_t version = 0;
++
++	if (!(slot->flags & 2))
++	{
++		/* (a direct colour: one bank, or 16 for 8 bits, the pens' high nibble over the colour's) */
++		for (int high = 0; high < ((slot->flags & 1) ? 16 : 1); high++)
++			version = version * 31 + scene.bank_version[palette_index(slot->palette_base, slot->shift,
++				(slot->colour | high << 4) & scene.sprite_bits) >> 4];
++		return version;
++	}
++	for (int index = 0; index < 16; index++)
++		version = version * 31 + scene.bank_version[palette_index(slot->palette_base, slot->shift,
++			slot->table[index] & scene.sprite_bits) >> 4];
++	return version;
++}
++
++static int power_of_two(int value)
++{
++	int power = 8;
++
++	while (power < value)
++		power <<= 1;
++	return power;
++}
++
++/* The sprite's image in its group's colours: found, or made (an old one let go when there is no room) */
++static scene_slot *sprite_image(const scene_sprite *sprite, const scene_layer *group)
++{
++	scene_slot key;
++	uint32_t hash = 2166136261u;
++	scene_slot *slot = NULL;
++
++	memset(&key, 0, sizeof(key));
++	key.place = sprite->place;
++	key.words = sprite->words;
++	key.rows = sprite->rows;
++	key.colour = sprite->colour;
++	key.transparent_bits = sprite->transparent_bits;
++	memcpy(key.table, sprite->table, sizeof(key.table));
++	key.palette_base = group->palette_base;
++	key.shift = group->shift;
++	key.flags = (uint8_t)((sprite->bits8 ? 1 : 0) | (sprite->indirect ? 2 : 0) | (sprite->opaque ? 4 : 0));
++	{
++		const uint8_t *bytes = (const uint8_t *)&key.place;
++		const size_t length = (size_t)((const uint8_t *)&key.version - bytes);
++
++		for (size_t index = 0; index < length; index++)
++			hash = (hash ^ bytes[index]) * 16777619u;
++	}
++	if (!hash)
++		hash = 1;
++	key.hash = hash;
++	for (uint32_t probe = 0; probe < SCENE_SPRITE_SLOTS; probe++)
++	{
++		scene_slot *at = &scene.slots[(hash + probe) & (SCENE_SPRITE_SLOTS - 1)];
++
++		if (at->hash == hash && at->place == key.place && at->words == key.words && at->rows == key.rows
++			&& at->colour == key.colour && at->flags == key.flags && at->palette_base == key.palette_base
++			&& at->shift == key.shift && at->transparent_bits == key.transparent_bits
++			&& memcmp(at->table, key.table, sizeof(key.table)) == 0)
++		{
++			slot = at;
++			break;
++		}
++		if (at->hash == 0)
++			break;
++	}
++	key.version = sprite_version(&key);
++	if (slot && slot->image && slot->version == key.version)
++	{
++		slot->used = scene.frame;
++		return slot;
++	}
++	if (!slot)
++		for (uint32_t probe = 0; probe < SCENE_SPRITE_SLOTS && !slot; probe++)
++		{
++			scene_slot *at = &scene.slots[(hash + probe) & (SCENE_SPRITE_SLOTS - 1)];
++
++			if (at->hash == 0)
++				slot = at;
++		}
++	if (!slot)
++	{
++		scene.missing |= S32_SCENE_MISSING_IMAGES;
++		return NULL;
++	}
++	{
++		const int image = slot->image;
++		const int width = slot->width, height = slot->height;
++
++		*slot = key;
++		slot->image = image;
++		slot->width = width;
++		slot->height = height;
++	}
++	{
++		const int wide = sprite->words * ((slot->flags & 1) ? 4 : 8);
++		const int bits = (slot->flags & 1) ? 8 : 4;
++		const int pens = 32 / bits;
++		const int pen_mask = (1 << bits) - 1;
++		const int end_pen = (slot->flags & 4) ? 0 : pen_mask;
++		const int width = power_of_two(wide), height = power_of_two(sprite->rows);
++
++		if (slot->image && (slot->width != width || slot->height != height))
++		{
++			scene.backend->image_free(scene.backend->context, slot->image);
++			slot->image = 0;
++		}
++		if (!slot->image && !(slot->image = image_with_room(width, height, slot)))
++			return NULL;
++		slot->width = width;
++		slot->height = height;
++		for (int row = 0; row < sprite->rows; row++)
++		{
++			uint16_t *out = &scene.pixels[row * width];
++			const uint32_t bank = sprite->place >> 20;
++			uint32_t address = (sprite->place & 0xfffff) + (uint32_t)(row * sprite->words);
++			int x = 0;
++			bool ended = false;
++
++			for (int word_index = 0; word_index < sprite->words; word_index++)
++			{
++				const uint32_t word = ended ? 0 : sprite_graphics(false, bank, address & 0xfffff);
++				int pen = 0;
++
++				address++;
++				for (int index = 0; index < pens; index++, x++)
++				{
++					const int skipped = (index == 0 || index == pens - 1) ? end_pen : 0;
++					int pixel;
++
++					pen = (int)(word >> (32 - bits * (index + 1))) & pen_mask;
++					pixel = (ended || pen == skipped) ? -1 : sprite_pixel(slot, pen);
++					if (pixel >= 0 && ((pixel & 0x7fff) == 0x7fff || ((pixel & scene.sprite_bits) & 0x7ffe) == (0x7ffe & scene.sprite_bits)))
++						pixel = -1;    /* (all ones shows what is below; the shadow pen, without shadows, too) */
++					out[x] = pixel < 0 ? 0 : argb1555(scene.palette[palette_index(slot->palette_base, slot->shift,
++						pixel & scene.sprite_bits)]);
++				}
++				if (end_pen != 0 && pen == pen_mask)
++					ended = true;
++			}
++			for (; x < width; x++)
++				out[x] = 0;
++		}
++		scene.backend->image_write(scene.backend->context, slot->image, 0, 0, width, sprite->rows, scene.pixels, width);
++		scene.out.images_drawn++;
++		scene.out.texels_drawn += width * sprite->rows;
++	}
++	slot->used = scene.frame;
++	return slot;
++}
++
++static void sprite_quads(void)
++{
++	const int list = scene.shown;
++	const int count = scene.sprite_count[list];
++
++	for (int index = 0; index < count; index++)
++	{
++		const scene_sprite *sprite = &scene.sprites[list][index];
++		const scene_layer *group = &scene.groups[sprite_group(sprite)];
++		const scene_slot *slot = sprite_image(sprite, group);
++		s32_scene_quad *quad;
++
++		if (!slot || !(quad = new_quad(group, slot->image)))
++			continue;
++		quad->z = group->z + 0.5f * (float)(index + 1) / (float)(count + 1);    /* (later ones in front) */
++		quad->x0 = (float)sprite->x0;
++		quad->y0 = (float)sprite->y0;
++		quad->x1 = (float)sprite->x1;
++		quad->y1 = (float)sprite->y1;
++		quad->u0 = sprite->u0;
++		quad->v0 = sprite->v0;
++		quad->u1 = sprite->u1;
++		quad->v1 = sprite->v1;
++	}
++}
++
++/* ---- the frame ---- */
++
++static bool scene_only(void)
++{
++	return scene.backend && scene.only;
++}
++
++void s32_scene_follow_frames(bool follow)
++{
++	scene.follow = follow;
++}
++
++const s32_scene_frame *s32_scene_last(void)
++{
++	return scene.last;
++}
++
++/* (video.c, after drawing a frame) */
++static void scene_after_draw(void)
++{
++	if (scene.backend && scene.follow)
++		scene.last = s32_scene_build();
++}
++
++void s32_scene_start(const s32_scene_backend *backend, bool only)
++{
++	memset(&scene, 0, sizeof(scene));
++	scene.backend = backend;
++	scene.only = only;
++	scene.character_bank = -1;
++	/* (the palette's copy starts at zero: every bank counts as changed on the first frame) */
++	for (int bank = 0; bank < BANKS; bank++)
++		scene.bank_version[bank] = 1;
++}
++
++const s32_scene_frame *s32_scene_build(void)
++{
++	const uint16_t control = video_register(0x00);
++	const uint16_t off = video_register(0x02);
++	const uint16_t more_off = video_register(0x8e);
++	int drawn = 0;
++
++	scene.frame++;
++	scene.out.quads = scene.quads;
++	scene.out.count = 0;
++	scene.out.images_drawn = 0;
++	scene.out.texels_drawn = 0;
++	scene.missing = 0;
++	if (!s32_display_enabled(0))
++	{
++		scene.out.missing = 0;
++		return &scene.out;    /* (no picture: nothing drawn, the backend clears) */
++	}
++	if (!bit(off, 0) && !bit(more_off, 1))
++		drawn |= 1 << LAYER_NBG0;
++	if (!bit(off, 1) && !bit(more_off, 2))
++		drawn |= 1 << LAYER_NBG1;
++	if (!bit(off, 2) && !bit(more_off, 3) && !bit(control, 12))
++		drawn |= 1 << LAYER_NBG2;
++	if (!bit(off, 3) && !bit(more_off, 4) && !bit(control, 13))
++		drawn |= 1 << LAYER_NBG3;
++	if (!bit(off, 4) && !bit(more_off, 0))
++		drawn |= 1 << LAYER_TEXT;
++	if (!bit(off, 5) && !bit(more_off, 5))
++		drawn |= 1 << LAYER_BITMAP;
++	palette_update();
++	mix_update(drawn);
++
++	if (scene.layers[LAYER_NBG1].shown)
++		scene.missing |= S32_SCENE_MISSING_NBG1;
++	if (scene.layers[LAYER_NBG3].shown)
++		scene.missing |= S32_SCENE_MISSING_NBG3;
++	backdrop_quads();
++	if (scene.layers[LAYER_NBG0].shown)
++		zoomed_quads(0);
++	if (scene.layers[LAYER_NBG2].shown)
++		scrolled_quads(2);
++	if (scene.layers[LAYER_TEXT].shown)
++		text_quads();
++	if (scene.layers[LAYER_BITMAP].shown)
++		bitmap_quads();
++	sprite_quads();
++	scene.out.missing = scene.missing;
++	return &scene.out;
++}
+diff --git a/runtime/src/video_scene_soft.c b/runtime/src/video_scene_soft.c
+new file mode 100644
+index 0000000..a9c9433
+--- /dev/null
++++ b/runtime/src/video_scene_soft.c
+@@ -0,0 +1,135 @@
++/**
++ *    Name:        video_scene_soft.c
++ *    Description: the scene's quads drawn in software (s32/video_scene_soft.h): the images in RAM, the quads
++ *                 by depth, nearest texels at the pixels' centres as the PowerVR2 takes them. For the computers,
++ *                 to set a scene's frame against video.c's
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ */
++#include "s32/video_scene_soft.h"
++
++#include <stdlib.h>
++#include <string.h>
++
++#define IMAGES 4096
++
++static struct
++{
++	uint16_t *texels[IMAGES];
++	int width[IMAGES], height[IMAGES];
++	long budget;          /* texels left, as a video memory would have */
++} soft;
++
++static int soft_create(void *context, int width, int height)
++{
++	(void)context;
++	if ((long)width * height > soft.budget)
++		return 0;
++	for (int image = 1; image < IMAGES; image++)
++		if (!soft.texels[image])
++		{
++			soft.texels[image] = (uint16_t *)calloc((size_t)width * (size_t)height, sizeof(uint16_t));
++			soft.width[image] = width;
++			soft.height[image] = height;
++			soft.budget -= (long)width * height;
++			return image;
++		}
++	return 0;
++}
++
++static void soft_free(void *context, int image)
++{
++	(void)context;
++	if (image > 0 && image < IMAGES && soft.texels[image])
++	{
++		soft.budget += (long)soft.width[image] * soft.height[image];
++		free(soft.texels[image]);
++		soft.texels[image] = NULL;
++	}
++}
++
++static void soft_write(void *context, int image, int x, int y, int width, int height, const uint16_t *pixels, int stride)
++{
++	(void)context;
++	for (int row = 0; row < height; row++)
++		memcpy(&soft.texels[image][(size_t)(y + row) * (size_t)soft.width[image] + (size_t)x], &pixels[(size_t)row * (size_t)stride],
++			(size_t)width * sizeof(uint16_t));
++}
++
++static const s32_scene_backend backend = { NULL, soft_create, soft_free, soft_write };
++
++const s32_scene_backend *s32_scene_soft_backend(long texels)
++{
++	soft.budget = texels;
++	return &backend;
++}
++
++static int by_depth(const void *a, const void *b)
++{
++	const s32_scene_quad *const *first = (const s32_scene_quad *const *)a;
++	const s32_scene_quad *const *second = (const s32_scene_quad *const *)b;
++
++	if ((*first)->z != (*second)->z)
++		return (*first)->z < (*second)->z ? -1 : 1;
++	return *first < *second ? -1 : 1;
++}
++
++/* a 5-bit channel after the quad's colour: as video.c's frames hold it (the value << 3) */
++static uint32_t channel(int value, int modulate, int add)
++{
++	value = value * modulate / 255 + (add * 31 + 127) / 255;
++	return (uint32_t)(value > 31 ? 31 : value) << 3;
++}
++
++void s32_scene_soft_draw(const s32_scene_frame *frame, uint32_t *rgb, int stride)
++{
++	static const s32_scene_quad *order[4096];
++	const int count = frame->count < 4096 ? frame->count : 4096;
++
++	for (int y = 0; y < 224; y++)
++		memset(&rgb[(size_t)y * (size_t)stride], 0, 320 * sizeof(uint32_t));
++	for (int index = 0; index < count; index++)
++		order[index] = &frame->quads[index];
++	qsort(order, (size_t)count, sizeof(order[0]), by_depth);
++	for (int index = 0; index < count; index++)
++	{
++		const s32_scene_quad *quad = order[index];
++		const float du = (quad->u1 - quad->u0) / (quad->x1 - quad->x0);
++		const float dv = (quad->v1 - quad->v0) / (quad->y1 - quad->y0);
++
++		for (int y = (int)quad->y0; y < (int)quad->y1 && y < 224; y++)
++			for (int x = (int)quad->x0; x < (int)quad->x1 && x < 320; x++)
++			{
++				uint16_t texel = quad->colour;
++
++				if (x < 0 || y < 0)
++					continue;
++				if (quad->image)
++				{
++					int u = (int)(quad->u0 + ((float)x + 0.5f - quad->x0) * du);
++					int v = (int)(quad->v0 + ((float)y + 0.5f - quad->y0) * dv);
++					const int width = soft.width[quad->image], height = soft.height[quad->image];
++
++					u = u < 0 ? 0 : (u >= width ? width - 1 : u);
++					v = v < 0 ? 0 : (v >= height ? height - 1 : v);
++					texel = soft.texels[quad->image][(size_t)v * (size_t)width + (size_t)u];
++				}
++				if (!(texel & 0x8000))
++					continue;
++				rgb[(size_t)y * (size_t)stride + (size_t)x] =
++					channel(texel >> 10 & 31, (int)(quad->modulate >> 16 & 255), (int)(quad->add >> 16 & 255)) << 16 |
++					channel(texel >> 5 & 31, (int)(quad->modulate >> 8 & 255), (int)(quad->add >> 8 & 255)) << 8 |
++					channel(texel & 31, (int)(quad->modulate & 255), (int)(quad->add & 255));
++			}
++	}
++}
++
++const uint16_t *s32_scene_soft_image(int image, int *width, int *height)
++{
++	if (image <= 0 || image >= IMAGES || !soft.texels[image])
++		return NULL;
++	*width = soft.width[image];
++	*height = soft.height[image];
++	return soft.texels[image];
++}
 -- 
 2.43.0
 

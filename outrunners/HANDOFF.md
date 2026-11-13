@@ -56,34 +56,53 @@ Para recompilar solo el programa: `source /opt/toolchains/dc/kos-naomi/environ.s
    `0xdeadXXXX`). Si no responde nada, el programa no llegó a `naomi_dimmcomms_start` o la CPU está colgada.
 5. `timehack.py` del WiPi corre en la Pi; no molestó.
 
-## Estado (2026-11-13)
+## Estado (2026-11-13, 14:20)
 
-Fase 1 en la placa: lógica ~8 ms y sonido ~2,9 ms por fotograma; `video.c` por software ~360 ms. Imagen actual en la
-Pi: bloque en vivo `0x8c0beaf0`, dibuja 1 de cada 30 (se puede cambiar con `draw`).
+**Fase 2 en marcha y funcionando en la placa:** la imagen sale por la PowerVR2 (el usuario: "se ve
+estupendamente"). Medido con `race.py` (carrera sin nadie en el mueble):
+- attract y casi toda la carrera a **60 fps** (juego ~8 ms, sonido ~1 ms, escena ~4–5 ms, envío ~1,2 ms);
+- bajones puntuales en tramos con paleta animada (muchas texturas reconvertidas a la vez): mejorados con tablas de
+  colores por celda y el bitmap redibujado solo en las filas visibles; **falta medir esa versión en la placa**
+  (imagen `or_141552`, sin enviar: se cortó el enlace con el ordenador del usuario).
+- Sin sonido: la síntesis MultiPCM está apagada (`ORUNNERS_NO_PCM_SYNTHESIS`) hasta la fase 3 (AICA). Con ella, en
+  carrera se comía ~16 ms por fotograma (generaba silencio: no hay samples en RAM).
 
-## Fase 2 — render PowerVR2 (lo siguiente)
+Arreglos de esta fase que conviene recordar:
+- **Accesos desalineados:** el código del V60 lee palabras en direcciones impares (scenery.c, `palette_cycle`); el
+  SH-4 da error de dirección. `naomi_log.c` los emula byte a byte, también en el hueco de retardo de un salto
+  (contador `misaligned` en el bloque en vivo, +0x78; ~100 en una carrera).
+- **No `vid_waitvbl`** con la PVR: `pvr_wait_ready` ya sincroniza con el vblank; con los dos iba a 30 fps.
+- **`memcmp` de newlib es byte a byte** en SH-4: `same()` compara por palabras (de 9 a 4 ms la escena).
+- Quads ordenados por textura y enviados con *direct rendering*: el envío de ~500 quads, de 3,5 a 1,2 ms.
 
-Objetivo: sustituir `s32_video_draw_frame()` + `show_frame()` por un render PVR, con `video.c` aún disponible para
-comparar. Lo que usa OutRunners, del censo de [../docs/outrunners.md](../docs/outrunners.md) §2.2:
-- Capas TEXT, NBG0 (scroll; zoom solo en unos 30 fotogramas de transición), NBG2 (scroll por línea y selección de
-  fila) y BITMAP (no llega a pantalla). NBG1 y NBG3 no se usan. Sin ventanas de recorte ni sombras.
-- ~56 sprites por fotograma (máximo 115), ~55 % escalados, algunos de 8 bpp o con tabla indirecta; recortes de la
-  lista de sprites (4 de media).
-- Prioridades del mezclador por capa y grupo de sprite; fundidos por offsets iguales en R, G y B; blending de TEXT
-  sobre sprites, que casi no tiene píxeles.
-- Paleta de 16.384 colores (82 bancos de 16 como máximo por fotograma): texturas de color directo ARGB1555
-  convertidas desde la paleta, con caché.
+Bloque en vivo de la imagen actual: `0x8c0c5548` (cambia con cada compilación: `sh-elf-nm`).
 
-Orden propuesto:
-1. Esqueleto PVR en `ports/naomi/pvr_video.c`: `pvr_init`, una lista translúcida/punch-through, 320×224 escalado a
-   640×448. Dibujar NBG0 como página de tilemap en textura (512×256 ARGB1555), regenerando solo los tiles que
-   cambian.
-2. NBG2 con una tira por línea (row scroll y row select de su tabla), TEXT encima.
-3. Sprites como quads desde una caché LRU de texturas (clave: dirección, tamaño, bpp, color o tabla, versión de la
-   paleta) y recortes en CPU.
-4. Orden Z según los registros de prioridad del mezclador; fundidos con un quad negro translúcido.
-5. Comparar con `video.c` en PC: la misma lógica de "qué dibujar" en una versión de PC que genere quads y los
-   rasterice, para validar sin la placa.
+## Fase 2 — render PowerVR2
 
-Lo que hay que leer de `runtime/src/video.c`: `draw_layers` y los `*_pixel` (cómo se direcciona cada tilemap),
-`draw_sprite_list` / `draw_sprite` (formato de la lista), `mix_rows` (prioridades), `palette_color`.
+Código: `runtime/src/video_scene.c` (escena de quads, portable, incluida por `video.c` con `ORUNNERS_VIDEO_SCENE`),
+`runtime/src/video_scene_soft.c` (rasterizador de PC para comparar) y `ports/naomi/pvr_video.c` (texturas ARGB1555
+no twiddled en VRAM, polígonos punch-through, profundidad = prioridad del mezclador).
+
+Comparar con `video.c` en el PC (mismo fotograma, mismo estado):
+```sh
+cmake -B build-scene -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=-DORUNNERS_VIDEO_SCENE && make -C build-scene orunners_game_headless
+ORUNNERS_SCENE_COMPARE=/tmp/scene build/bin/orunners_game_headless --script race_arcade.txt --hashes /dev/null \
+    --video-hashes /dev/null --screens 1 --assets orunners.assets
+# una línea cada 30 fotogramas: píxeles distintos; /tmp/scene/scene_N.ppm (original | escena) cada 600;
+# ORUNNERS_SCENE_DUMP=N, ORUNNERS_SCENE_QUADS=N para un fotograma concreto (y sus imágenes)
+```
+Resultado (2026-11-13): la mayoría de fotogramas con <1 % de píxeles distintos (bordes de sprites escalados).
+Los fundidos son aproximados (la PVR multiplica; la placa resta): se ven algo más grises.
+
+Pendiente de la fase 2:
+1. Medir en placa la versión con tablas de color y mirar los bajones restantes (`or_profile.py` en carrera:
+   dejar el gas puesto con un poke de `test_inputs` y perfilar en segundo plano, `nohup`).
+2. Blending de TEXT sobre sprites (el panel translúcido de la selección; `missing` 0x10).
+3. Fundidos más fieles (quizá una pasada translúcida).
+4. Recortes "outside" de la lista de sprites y ventanas de tilemaps (OutRunners no los usa en lo visto).
+
+Herramienta nueva en la Pi: `race.py` (de `ports/naomi/`, copiado como `/sbin/piforce/or_race.py`):
+`python3 or_race.py ADDR 100` echa moneda, pulsa START, acelera y gira; imprime fps y tiempos.
+
+
+

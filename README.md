@@ -72,8 +72,8 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
   tal cual (mezcla por píxel al estilo de MAME, ~21 M instrucciones x86 por fotograma) no cabe: hay que dibujar con
   la PowerVR2. OutRunners usa poco del chip: capas TEXT, NBG0 y NBG2, ~56 sprites por fotograma, sin sombras ni
   ventanas. El FM no toca notas, así que el sonido se reduce al MultiPCM, que pasará al AICA.
-  Estudio, mediciones y plan por fases: [docs/outrunners.md](docs/outrunners.md). **Fase 1 en la placa** (2026-11-13):
-  juego ~8 ms y sonido ~2,9 ms por fotograma (57–60 fps); el vídeo por software tarda ~360 ms, falta el render PVR2.
+  Estudio, mediciones y plan por fases: [docs/outrunners.md](docs/outrunners.md). **Fase 2 en la placa** (2026-11-13):
+  render PowerVR2 a 60 fps en attract y casi toda la carrera; sin sonido aún (fase 3, AICA).
 
 ---
 

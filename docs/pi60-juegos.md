@@ -39,7 +39,7 @@ port propio, `dc-` juego de Dreamcast convertido con dc2naomi (`_dc2naomict` = m
 | `h-konamigt_mame4all_naomi` | Konami GT (MAME4ALL) | ⚠️ lento en placa |
 | `h-ssprint_mame4all_naomi` (+ versión sin sonido) | Super Sprint (MAME4ALL) | ✅ 60 fps |
 | `h-jvstest` | Prueba de entradas JVS (calibración de volante y pedales) | ✅ |
-| `h-outrunners_naomi` | OutRunners, port nativo, fase 1 ([docs/outrunners.md](outrunners.md)): lógica y sonido a ~60 fps, imagen por software a saltos (fase de pruebas) | 🧪 |
+| `h-outrunners_naomi` | OutRunners, port nativo ([docs/outrunners.md](outrunners.md)): imagen PowerVR2 a ~60 fps, sin sonido (en pruebas) | 🧪 |
 
 ## Juegos de Dreamcast convertidos con [dc2naomi](https://github.com/0skarzer0/dc2naomi)
 
