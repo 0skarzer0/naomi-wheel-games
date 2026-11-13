@@ -73,7 +73,7 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
   la PowerVR2. OutRunners usa poco del chip: capas TEXT, NBG0 y NBG2, ~56 sprites por fotograma, sin sombras ni
   ventanas. El FM no toca notas, así que el sonido se reduce al MultiPCM, que pasará al AICA.
   Estudio, mediciones y plan por fases: [docs/outrunners.md](docs/outrunners.md). **Fase 2 en la placa** (2026-11-13):
-  render PowerVR2 a 60 fps en attract y casi toda la carrera; sin sonido aún (fase 3, AICA).
+  render PowerVR2 a 60 fps en attract y casi toda la carrera; sonido en el AICA (fase 3) hecho, sin probar aún.
 
 ---
 

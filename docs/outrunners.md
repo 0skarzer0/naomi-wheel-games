@@ -1,8 +1,10 @@
 # OutRunners (Sega System Multi 32) en NAOMI: estudio y plan del port
 
-Estado (2026-11-13, 14:20): **fase 2 funcionando en la placa.** La imagen sale por la PowerVR2 a 60 fps en el
-attract y en casi toda la carrera (lógica ~8 ms, escena ~4–5 ms). Sin sonido todavía (fase 3). Detalle y siguientes
-pasos en [outrunners/HANDOFF.md](../outrunners/HANDOFF.md).
+Estado (2026-11-13, 16:10): **fase 2 funcionando en la placa** (imagen por la PowerVR2 a 60 fps en el attract y
+en casi toda la carrera). Hechos después y comprobados solo en PC: sombras, blending del texto, fundidos exactos
+(del 7,6 % al 0,68 % de píxeles distintos de `video.c`) y la **fase 3, el sonido en el AICA** (las 28 voces del
+MultiPCM en canales del AICA). Pendiente de probar en la placa. Detalle en
+[outrunners/HANDOFF.md](../outrunners/HANDOFF.md).
 
 Base: [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port) (BSD-3-Clause, Sebastian Toyos), port
 nativo en C hecho sobre su descompilación [outrunners-decomp](https://github.com/cheviman/outrunners-decomp).
@@ -174,5 +176,8 @@ Con 2 núcleos tardó unos 35 minutos. La primera vez falló al compilar las uti
 
 cheviman (Sebastian Toyos), por OutRunners port y su descompilación; Aaron Giles, por ymfm; los autores del
 MultiPCM y del V60 de MAME (Miguel Angel Horna, Farfetch'd, R. Belmont), en los que se basa el runtime; DragonMinded
-(libnaomi), por la secuencia de lectura del cartucho que usa `naomi_dimmfs.c`; y el equipo de KallistiOS.
+(libnaomi), por la secuencia de lectura del cartucho que usa `naomi_dimmfs.c`; Aaron Giles también por el vídeo
+del System 32 de MAME (`segas32_v.cpp`), que sigue `video.c` y contra el que se compara la escena de la PowerVR2;
+los autores del AICA de MAME (`sound/aica.cpp`) y del controlador de sonido de KallistiOS, por el uso de sus
+registros que sigue `multipcm_aica.c`; y el equipo de KallistiOS (PowerVR2, AICA, G2).
 OutRunners es una marca de SEGA. Este proyecto no está afiliado a SEGA ni respaldado por ella.

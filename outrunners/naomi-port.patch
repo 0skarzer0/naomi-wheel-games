@@ -1,7 +1,7 @@
 From 046476afbf82e3b10901619456ed1847c0a9dae5 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 04:31:49 +0100
-Subject: [PATCH 1/5] NAOMI port, first stage: boot, JVS controls, live figures
+Subject: [PATCH 1/8] NAOMI port, first stage: boot, JVS controls, live figures
 
 ports/naomi: the game, its board and its sound program on a NAOMI's SH-4
 (KallistiOS, KOS_SUBARCH=naomi), the Crazy Taxi upright's wheel, pedals and
@@ -1722,7 +1722,7 @@ index 872e227..76aa7fc 100644
 From 52320d4a428a9457a07d746eee2c7a0e48ee89ae Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 04:44:05 +0100
-Subject: [PATCH 2/5] NAOMI port: no pthreads (workers_none.c); builds and
+Subject: [PATCH 2/8] NAOMI port: no pthreads (workers_none.c); builds and
  links with KOS for KOS_SUBARCH=naomi
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -1799,7 +1799,7 @@ index 0000000..7b61d97
 From 3d5d3349ae774a770c1b47d6550b508b42237d79 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 10:12:23 +0100
-Subject: [PATCH 3/5] NAOMI port runs on the board: game thread with the tasks'
+Subject: [PATCH 3/8] NAOMI port runs on the board: game thread with the tasks'
  stacks, faster sound board
 
 Found on the NAOMI 2 through the NetDIMM: KallistiOS stops a thread whose
@@ -2583,7 +2583,7 @@ index 76aa7fc..53ee148 100644
 From b397cb0c36115227ac32196a0657a98e71d8ab9e Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 14:17:46 +0100
-Subject: [PATCH 4/5] NAOMI stage 2: the frame on the PowerVR2 (scene of
+Subject: [PATCH 4/8] NAOMI stage 2: the frame on the PowerVR2 (scene of
  textured quads)
 
 runtime/src/video_scene.c (ORUNNERS_VIDEO_SCENE, included by video.c): the
@@ -5281,7 +5281,7 @@ index 0000000..a9c9433
 From f0efbfa88139a7ff648d7b03ed1cb5798d6fee77 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 14:26:40 +0100
-Subject: [PATCH 5/5] NAOMI: START doubles as the coin button (press = coin,
+Subject: [PATCH 5/8] NAOMI: START doubles as the coin button (press = coin,
  release = START)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -5344,6 +5344,1814 @@ index 0b22016..988d5d2 100644
  	/* the 315-5296s' ports are active low */
  	input->port_a[0] = (uint8_t)(0xff & ~(shift_up ? 0x01 : 0) & ~(shift_down ? 0x02 : 0));
  	input->port_b[0] = 0xff;
+-- 
+2.43.0
+
+
+From 48360bfed2d130f4eb35fe69e785bb0c08dfd8bb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 15:47:28 +0100
+Subject: [PATCH 6/8] Scene: the sprites' shadow pen, the text's blending,
+ fades taken away exactly
+
+Shadows: the shadow pen's texels in an image of their own, drawn black at half
+over what is under it. The text layer blends over the sprites by 8 x 8 cells
+over their rectangles. A fade (every layer the same negative offsets) is the
+frame's 'subtract', taken away from the whole picture: on the PowerVR2 three
+translucent quads (1 - d, + amount, 1 - d). The headless compare: 7.6 % of the
+pixels differing over the arcade race script down to 0.68 %.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016VRYRPP2crYKhAiGSakTbz
+---
+ ports/headless/main.c             |  19 ++-
+ ports/naomi/pvr_video.c           |  61 +++++++-
+ runtime/include/s32/video_scene.h |  11 +-
+ runtime/src/video_scene.c         | 243 ++++++++++++++++++++++++------
+ runtime/src/video_scene_soft.c    |  52 ++++++-
+ 5 files changed, 329 insertions(+), 57 deletions(-)
+
+diff --git a/ports/headless/main.c b/ports/headless/main.c
+index 0948e3d..da78339 100644
+--- a/ports/headless/main.c
++++ b/ports/headless/main.c
+@@ -353,17 +353,26 @@ static void scene_compare(void)
+ 	total_differ += (uint64_t)differ;
+ 	total_pixels += 320 * 224;
+ 	if (frame % 30 == 0)
+-		printf("scene %" PRIu64 ": %ld pixels differ (%.2f %%; all %.3f %%), %d quads, %d images drawn (%d texels), missing %04x\n",
+-			frame, differ, differ * 100.0 / (320 * 224), total_differ * 100.0 / (double)total_pixels, scene->count,
+-			scene->images_drawn, scene->texels_drawn, scene->missing);
++	{
++		int blended = 0, shadows = 0;
++
++		for (int index = 0; index < scene->count; index++)
++		{
++			blended += scene->quads[index].weight < 8 && scene->quads[index].modulate != 0;
++			shadows += scene->quads[index].weight < 8 && scene->quads[index].modulate == 0;
++		}
++		printf("scene %" PRIu64 ": %ld pixels differ (%.2f %%; all %.3f %%), %d quads (%d blend, %d shadow), %d images drawn (%d texels), missing %04x, subtract %06x\n",
++			frame, differ, differ * 100.0 / (320 * 224), total_differ * 100.0 / (double)total_pixels, scene->count, blended, shadows,
++			scene->images_drawn, scene->texels_drawn, scene->missing, (unsigned)scene->subtract);
++	}
+ 	if (getenv("ORUNNERS_SCENE_QUADS") && (uint64_t)atoll(getenv("ORUNNERS_SCENE_QUADS")) == frame)
+ 		for (int index = 0; index < scene->count; index++)
+ 		{
+ 			const s32_scene_quad *q = &scene->quads[index];
+ 
+-			printf("quad %d: z %.3f image %d (%.1f,%.1f)-(%.1f,%.1f) uv (%.2f,%.2f)-(%.2f,%.2f) colour %04x mod %06x add %06x\n",
++			printf("quad %d: z %.3f image %d (%.1f,%.1f)-(%.1f,%.1f) uv (%.2f,%.2f)-(%.2f,%.2f) colour %04x mod %06x add %06x weight %d\n",
+ 				index, q->z, q->image, q->x0, q->y0, q->x1, q->y1, q->u0, q->v0, q->u1, q->v1, q->colour, (unsigned)q->modulate,
+-				(unsigned)q->add);
++				(unsigned)q->add, q->weight);
+ 		}
+ 	if (getenv("ORUNNERS_SCENE_QUADS") && (uint64_t)atoll(getenv("ORUNNERS_SCENE_QUADS")) == frame)
+ 		for (int image = 1; image < 4096; image++)
+diff --git a/ports/naomi/pvr_video.c b/ports/naomi/pvr_video.c
+index 57ea51e..a2d9eea 100644
+--- a/ports/naomi/pvr_video.c
++++ b/ports/naomi/pvr_video.c
+@@ -10,6 +10,9 @@
+  *    bitmap, a sprite). Bit 15 is the punch-through's alpha: the pens that are not drawn. Depth is the mixer's
+  *    priority (higher in front, compared GEQUAL); the background, untextured quads, the backdrop's colour.
+  *    Colour offsets: the vertex colour modulates the texels, the offset colour adds.
++ *    The quads that blend (the text over the sprites, the sprites' shadows) go in the translucent list, their
++ *    weight as the vertices' alpha. A fade's subtraction (the scene's 'subtract') is three translucent quads over
++ *    the whole screen after everything else: 1 - d, plus the amount (the blend saturates), 1 - d again.
+  */
+ #include <kos.h>
+ #include <dc/pvr.h>
+@@ -88,7 +91,7 @@ void pvr_video_start(void)
+ {
+ 	pvr_init_params_t params = {
+ 		/* opaque, opaque modifiers, translucent, translucent modifiers, punch-through */
+-		.opb_sizes = { PVR_BINSIZE_16, PVR_BINSIZE_0, PVR_BINSIZE_0, PVR_BINSIZE_0, PVR_BINSIZE_16 },
++		.opb_sizes = { PVR_BINSIZE_16, PVR_BINSIZE_0, PVR_BINSIZE_16, PVR_BINSIZE_0, PVR_BINSIZE_16 },
+ 		.vertex_buf_size = 512 * 1024,
+ 		.opb_overflow_count = 3,
+ 	};
+@@ -131,7 +134,7 @@ static void quad_vertices(const s32_scene_quad *quad, float width, float height)
+ {
+ 	const float x0 = quad->x0 * 2, x1 = quad->x1 * 2, y0 = quad->y0 * 2 + TOP, y1 = quad->y1 * 2 + TOP;
+ 	const float u0 = quad->u0 / width, u1 = quad->u1 / width, v0 = quad->v0 / height, v1 = quad->v1 / height;
+-	const uint32_t argb = 0xff000000u | quad->modulate;
++	const uint32_t argb = (quad->weight >= 8 ? 0xff000000u : (uint32_t)(quad->weight * 255 / 8) << 24) | quad->modulate;
+ 
+ 	send_vertex(PVR_CMD_VERTEX, x0, y1, quad->z, u0, v1, argb, quad->add);
+ 	send_vertex(PVR_CMD_VERTEX, x0, y0, quad->z, u0, v0, argb, quad->add);
+@@ -225,7 +228,7 @@ void pvr_video_frame(pvr_video_stats *stats)
+ 		const s32_scene_quad *quad = &frame->quads[order[place]];
+ 		const bool add = quad->add != 0;
+ 
+-		if (!quad->image || !pvr_images.base[quad->image])
++		if (!quad->image || !pvr_images.base[quad->image] || quad->weight < 8)
+ 			continue;
+ 		if (quad->image != last_image || add != last_add)
+ 		{
+@@ -243,6 +246,58 @@ void pvr_video_frame(pvr_video_stats *stats)
+ 		quad_vertices(quad, (float)pvr_images.width[quad->image], (float)pvr_images.height[quad->image]);
+ 	}
+ 	pvr_list_finish();
++
++	/* the quads that blend, then the fade */
++	pvr_list_begin(PVR_LIST_TR_POLY);
++	last_image = -1;
++	for (int place = 0; place < ordered; place++)
++	{
++		const s32_scene_quad *quad = &frame->quads[order[place]];
++
++		if (!quad->image || !pvr_images.base[quad->image] || quad->weight >= 8)
++			continue;
++		if (quad->image != last_image)
++		{
++			pvr_poly_cxt_txr(&context, PVR_LIST_TR_POLY, PVR_TXRFMT_ARGB1555 | PVR_TXRFMT_NONTWIDDLED,
++				pvr_images.width[quad->image], pvr_images.height[quad->image], pvr_images.base[quad->image],
++				PVR_FILTER_NONE);
++			context.depth.comparison = PVR_DEPTHCMP_GEQUAL;
++			context.depth.write = false;
++			context.txr.env = PVR_TXRENV_MODULATEALPHA;
++			context.gen.specular = true;
++			pvr_poly_compile(&header, &context);
++			send_header(&header);
++			last_image = quad->image;
++		}
++		quad_vertices(quad, (float)pvr_images.width[quad->image], (float)pvr_images.height[quad->image]);
++	}
++	if (frame->subtract)
++	{
++		static const struct { pvr_blend_mode_t src, dst; } passes[3] = {
++			{ PVR_BLEND_INVDESTCOLOR, PVR_BLEND_ZERO }, { PVR_BLEND_ONE, PVR_BLEND_ONE }, { PVR_BLEND_INVDESTCOLOR, PVR_BLEND_ZERO }
++		};
++
++		for (int pass = 0; pass < 3; pass++)
++		{
++			s32_scene_quad whole;
++
++			memset(&whole, 0, sizeof(whole));
++			whole.x1 = 320;
++			whole.y1 = 224;
++			whole.z = 1000.0f + (float)pass;    /* (in front of everything, in this order: autosort) */
++			whole.weight = 8;
++			whole.modulate = pass == 1 ? frame->subtract : 0xffffff;
++			pvr_poly_cxt_col(&context, PVR_LIST_TR_POLY);
++			context.depth.comparison = PVR_DEPTHCMP_ALWAYS;
++			context.depth.write = false;
++			context.blend.src = passes[pass].src;
++			context.blend.dst = passes[pass].dst;
++			pvr_poly_compile(&header, &context);
++			send_header(&header);
++			quad_vertices(&whole, 1, 1);
++		}
++	}
++	pvr_list_finish();
+ 	pvr_scene_finish();
+ 	if (stats)
+ 	{
+diff --git a/runtime/include/s32/video_scene.h b/runtime/include/s32/video_scene.h
+index d1d3f32..9d0b422 100644
+--- a/runtime/include/s32/video_scene.h
++++ b/runtime/include/s32/video_scene.h
+@@ -8,7 +8,9 @@
+  *    What it covers is what OutRunners uses of the chips (docs/outrunners.md of 0skarzer0/naomi-wheel-games): the
+  *    text layer, NBG0 (scroll and zoom), NBG2 (scroll, row scroll, row select), the backdrop, the sprites (zoom,
+  *    flips, 8 bits, indirect colours, the list's clip rectangle) and the mixer's priorities and colour offsets.
+- *    Not covered (yet): NBG1, NBG3, the bitmap, clip windows, blending, shadows, the list's outside clip, the
++ *    Blending: the text layer's over the sprites, by 8 x 8 cells over the sprites' rectangles. Shadows: the
++ *    sprites' shadow pen (an image of its own, drawn black at half over what is under it).
++ *    Not covered (yet): NBG1, NBG3, clip windows, other layers' blending, shadow sprites, the list's outside clip, the
+  *    screens' flips, WIDE. Left screen only.
+  *
+  *    The scene keeps images of 16-bit pixels (ARGB1555: bit 15 opaque, red in 14-10) that a backend holds
+@@ -42,7 +44,8 @@ typedef struct
+    texels at its corners (u0, v0 at x0, y0; u1, v1 at x1, y1: a flip has them the other way), its depth, and the
+    colour it takes: each channel times modulate's (0-255 each, 0x00RRGGBB: 255 keeps it), plus add's (0-255 each,
+    0x00RRGGBB). Image 0 is no image: a plain 'colour' (ARGB1555, opaque). Texels whose bit 15 is clear are not
+-   drawn */
++   drawn. 'weight' below 8 blends: the quad's colour times weight / 8 plus what is under it times (8 - weight) / 8
++   (the mixer's blending: the text layer over the sprites) */
+ typedef struct
+ {
+ 	float x0, y0, x1, y1;
+@@ -52,12 +55,16 @@ typedef struct
+ 	uint16_t colour;
+ 	uint32_t modulate;
+ 	uint32_t add;
++	uint8_t weight;
+ } s32_scene_quad;
+ 
+ typedef struct
+ {
+ 	const s32_scene_quad *quads;
+ 	int count;
++	/* taken from every channel of the whole picture at the end, 0-255 each (0x00RRGGBB), floored at zero: the
++	   mixer's negative colour offsets when all the layers take the same (fades) */
++	uint32_t subtract;
+ 	/* what the frame needed that the scene does not cover, as bits (S32_SCENE_MISSING_), for the log */
+ 	uint32_t missing;
+ 	/* the work done: images (re)drawn, their texels */
+diff --git a/runtime/src/video_scene.c b/runtime/src/video_scene.c
+index b70c9e3..1685acf 100644
+--- a/runtime/src/video_scene.c
++++ b/runtime/src/video_scene.c
+@@ -74,6 +74,7 @@ typedef struct scene_slot
+ 	uint32_t version;                /* of the colours it was drawn with */
+ 	int image;
+ 	int width, height;               /* the image's (powers of two) */
++	int shadow_image;                /* its shadow pen's texels (opaque black), 0 if it has none */
+ 	uint32_t used;
+ } scene_slot;
+ 
+@@ -111,6 +112,7 @@ static struct
+ 	uint8_t character_changed[512];
+ 	int character_bank;
+ 	uint16_t pixels[512 * 256];      /* an image as it is made */
++	uint16_t shadow_pixels[512 * 256];    /* ... a sprite's shadow image */
+ 	uint32_t missing;
+ 	struct
+ 	{
+@@ -127,6 +129,12 @@ static struct
+ 	} bitmap;
+ 	scene_layer layers[LAYERS];
+ 	scene_layer groups[16];
++	/* the text layer's blending (mixer 0x4E, 0x30): over which sprite groups, its weight in eighths */
++	bool text_blends;
++	uint16_t text_sprite_groups;
++	uint8_t text_weight;
++	scene_page *text_entry;
++	int text_quad;    /* its quad, -1 none */
+ 	int group_shift, group_mask, sprite_bits;
+ } scene;
+ 
+@@ -174,9 +182,10 @@ static void palette_update(void)
+ /* ---- the mix: depths and colours of the layers and the sprite groups (video.c's mix) ---- */
+ 
+ /* A layer's colour offsets (0x40-0x44 or 0x46-0x4A, red green blue, -32 to 31 a channel) as a quad's colour:
+-   a negative offset scales the channel down ((31 + offset) / 31: the same at the ends, darker in between
+-   than adding it), a positive one adds */
+-static void colour_of(scene_layer *layer, int offsets)
++   a positive offset adds; a negative one, when every layer takes the same offsets (a fade), is the frame's
++   'subtract' (exact: the backend takes it from the whole picture), otherwise it scales the channel down
++   ((31 + offset) / 31: the same at the ends, darker in between than taking it away) */
++static void colour_of(scene_layer *layer, int offsets, bool uniform)
+ {
+ 	layer->modulate = 0xffffff;
+ 	layer->add = 0;
+@@ -187,7 +196,9 @@ static void colour_of(scene_layer *layer, int offsets)
+ 		const int offset = sign_extend(mixer_register(0, (offsets ? 0x46u : 0x40u) + 2 * (uint32_t)channel), 6);
+ 		const int shift = 16 - 8 * channel;    /* red, green, blue: 0x00RRGGBB */
+ 
+-		if (offset < 0)
++		if (offset < 0 && uniform)
++			scene.out.subtract |= (uint32_t)(offset <= -31 ? 255 : 255 * -offset / 31) << shift;
++		else if (offset < 0)
+ 			layer->modulate = (layer->modulate & ~(0xffu << shift)) | (uint32_t)(offset <= -31 ? 0 : 255 * (31 + offset) / 31) << shift;
+ 		else if (offset > 0)
+ 			layer->add |= (uint32_t)(offset >= 31 ? 255 : 255 * offset / 31) << shift;
+@@ -199,46 +210,79 @@ static void mix_update(int drawn)
+ 	const uint16_t sprite_control = mixer_register(0, 0x4c);
+ 	const sprite_grouping grouping = groupings[sprite_control & 0x0f];
+ 
++	scene.text_blends = false;
+ 	if (bit(mixer_register(0, 0x4e), 11))
+ 		for (int index = LAYER_TEXT; index <= LAYER_BITMAP; index++)
+-			if (((mixer_register(0, 0x30 + 2 * (uint32_t)index) >> 6) & 0xff) != 0 && bit((uint32_t)drawn, index))
++		{
++			const uint16_t blend = mixer_register(0, 0x30 + 2 * (uint32_t)index);
++			const int with = (blend >> 6) & 0xff;
++
++			if (with == 0 || !bit((uint32_t)drawn, index))
++				continue;
++			/* the text over the sprites, all OutRunners does (docs/outrunners.md); anything else is not drawn */
++			if (index == LAYER_TEXT && with == 1 << LAYER_SPRITES)
++			{
++				scene.text_blends = true;
++				scene.text_sprite_groups = sprite_blend(blend & 0x3f);
++				scene.text_weight = (uint8_t)(7 - ((mixer_register(0, 0x4e) >> 8) & 7));
++			}
++			else
+ 				scene.missing |= S32_SCENE_MISSING_BLEND;
+-	if (bit(sprite_control, 2))
+-		scene.missing |= S32_SCENE_MISSING_SHADOW;
+-	for (int index = LAYER_TEXT; index <= LAYER_BITMAP; index++)
+-	{
+-		const uint16_t control = mixer_register(0, 0x20 + 2 * (uint32_t)index);
+-		scene_layer *layer = &scene.layers[index];
+-
+-		layer->shown = bit((uint32_t)drawn, index) && (control & 0x0f) != 0;
+-		layer->z = (float)((control & 0x0f) << 3 | (6 - index));
+-		layer->palette_base = (uint16_t)((control & 0x00f0) << 6);
+-		layer->shift = (control >> 8) & 3;
+-		colour_of(layer, color_offsets(0, bit(mixer_register(0, 0x3e), index),
+-			bit(mixer_register(0, 0x30 + 2 * (uint32_t)index), 14)));
+-	}
++		}
++	/* (0x4C bit 2 darkens the sprite pixels whose bit 15 is clear: only the shadow sprites' (left out) and
++	   indirect colours without 0x8000, which OutRunners does not use) */
+ 	{
+-		scene_layer *backdrop = &scene.layers[LAYER_BACKDROP];
++		/* the offsets each layer takes (0, 1, 2 none): the same for all, a fade, is taken away exactly */
++		int offsets[LAYERS + 1];    /* (the sprites' last) */
++		bool uniform = true;
+ 
+-		backdrop->shown = true;
+-		backdrop->z = 1 << 3;
+-		backdrop->palette_base = (uint16_t)((mixer_register(0, 0x2c) & 0x00f0) << 6);
+-		backdrop->shift = (mixer_register(0, 0x2c) >> 8) & 3;
+-		colour_of(backdrop, color_offsets(0, bit(mixer_register(0, 0x3e), 8), bit(mixer_register(0, 0x3e), 14)));
+-	}
+-	scene.group_shift = grouping.shift;
+-	scene.group_mask = grouping.mask;
+-	scene.sprite_bits = ((1 << grouping.shift) - 1) & 0x3fff;
+-	for (int group = 0; group <= grouping.mask; group++)
+-	{
+-		const uint16_t control = mixer_register(0, 2 * (uint32_t)(grouping.base | group));
+-		scene_layer *sprites = &scene.groups[group];
+-
+-		sprites->shown = true;
+-		sprites->z = (float)((control & 0x0f) << 3 | 7);
+-		sprites->palette_base = (uint16_t)((((sprite_control & 3) != 3) ? control : sprite_control) & 0x00f0) << 6;
+-		sprites->shift = (control >> 8) & 3;
+-		colour_of(sprites, color_offsets(0, bit(mixer_register(0, 0x3e), 6), bit(sprite_control, 15)));
++		for (int index = LAYER_TEXT; index <= LAYER_BITMAP; index++)
++		{
++			const uint16_t control = mixer_register(0, 0x20 + 2 * (uint32_t)index);
++			scene_layer *layer = &scene.layers[index];
++
++			layer->shown = bit((uint32_t)drawn, index) && (control & 0x0f) != 0;
++			layer->z = (float)((control & 0x0f) << 3 | (6 - index));
++			layer->palette_base = (uint16_t)((control & 0x00f0) << 6);
++			layer->shift = (control >> 8) & 3;
++			offsets[index] = color_offsets(0, bit(mixer_register(0, 0x3e), index),
++				bit(mixer_register(0, 0x30 + 2 * (uint32_t)index), 14));
++		}
++		{
++			scene_layer *backdrop = &scene.layers[LAYER_BACKDROP];
++
++			backdrop->shown = true;
++			backdrop->z = 1 << 3;
++			backdrop->palette_base = (uint16_t)((mixer_register(0, 0x2c) & 0x00f0) << 6);
++			backdrop->shift = (mixer_register(0, 0x2c) >> 8) & 3;
++			offsets[LAYER_BACKDROP] = color_offsets(0, bit(mixer_register(0, 0x3e), 8), bit(mixer_register(0, 0x3e), 14));
++		}
++		scene.group_shift = grouping.shift;
++		scene.group_mask = grouping.mask;
++		scene.sprite_bits = ((1 << grouping.shift) - 1) & 0x3fff;
++		for (int group = 0; group <= grouping.mask; group++)
++		{
++			const uint16_t control = mixer_register(0, 2 * (uint32_t)(grouping.base | group));
++			scene_layer *sprites = &scene.groups[group];
++
++			sprites->shown = true;
++			sprites->z = (float)((control & 0x0f) << 3 | 7);
++			sprites->palette_base = (uint16_t)((((sprite_control & 3) != 3) ? control : sprite_control) & 0x00f0) << 6;
++			sprites->shift = (control >> 8) & 3;
++		}
++		offsets[LAYERS] = color_offsets(0, bit(mixer_register(0, 0x3e), 6), bit(sprite_control, 15));
++		/* (all the shown layers, the sprites and the backdrop the same) */
++		for (int index = LAYER_TEXT; index <= LAYER_BITMAP; index++)
++			if (scene.layers[index].shown && offsets[index] != offsets[LAYER_BACKDROP])
++				uniform = false;
++		if (offsets[LAYERS] != offsets[LAYER_BACKDROP])
++			uniform = false;
++		scene.out.subtract = 0;
++		for (int index = LAYER_TEXT; index <= LAYER_BACKDROP; index++)
++			if (index != LAYER_SPRITES)
++				colour_of(&scene.layers[index], offsets[index], uniform);
++		for (int group = 0; group <= grouping.mask; group++)
++			colour_of(&scene.groups[group], offsets[LAYERS], uniform);
+ 	}
+ }
+ 
+@@ -256,6 +300,7 @@ static s32_scene_quad *new_quad(const scene_layer *layer, int image)
+ 	quad->colour = 0;
+ 	quad->modulate = layer->modulate;
+ 	quad->add = layer->add;
++	quad->weight = 8;
+ 	return quad;
+ }
+ 
+@@ -291,6 +336,11 @@ static int image_with_room(int width, int height, const scene_slot *keep)
+ 		}
+ 		scene.backend->image_free(scene.backend->context, oldest->image);
+ 		oldest->image = 0;
++		if (oldest->shadow_image)
++		{
++			scene.backend->image_free(scene.backend->context, oldest->shadow_image);
++			oldest->shadow_image = 0;
++		}
+ 	}
+ 	return image;
+ }
+@@ -677,7 +727,73 @@ static void text_quads(void)
+ 	if ((entry = page_of(true, (control >> 4) & 0x1f, control & 7, layer)) == NULL)
+ 		return;
+ 	text_update(entry);
++	scene.text_entry = entry;
++	scene.text_quad = scene.out.count;
+ 	page_quad(layer, entry, 0, 0, 320, HEIGHT, 0, 0, 1, 1);
++	if (scene.text_quad == scene.out.count)
++		scene.text_quad = -1;    /* (nothing drawn) */
++}
++
++/* The text blends where a sprite is under it (video.c's mix: the layer under its pixel is the sprites): its
++   8 x 8 cells over the rectangles of the sprites of the groups it blends with that are under it and over the
++   tilemaps go in quads of their own that blend, by runs along each row of cells */
++static void text_blend_quads(void)
++{
++	static uint8_t under[HEIGHT / 8][40];
++	const scene_layer *layer = &scene.layers[LAYER_TEXT];
++	float highest_tilemap = 0;
++	bool any = false;
++
++	if (!scene.text_blends || scene.text_quad < 0)
++		return;
++	for (int index = LAYER_NBG0; index <= LAYER_BITMAP; index++)
++		if (scene.layers[index].shown && scene.layers[index].z < layer->z && scene.layers[index].z > highest_tilemap)
++			highest_tilemap = scene.layers[index].z;
++	memset(under, 0, sizeof(under));
++	for (int index = 0; index < scene.out.count; index++)
++	{
++		const s32_scene_quad *quad = &scene.quads[index];
++		int group = -1;
++
++		if (quad->z >= layer->z || quad->z <= highest_tilemap || quad->image == 0)
++			continue;
++		for (int at = 0; at <= scene.group_mask; at++)
++			if (quad->z >= scene.groups[at].z && quad->z < scene.groups[at].z + 1)
++				group = at;
++		if (group < 0 || !bit(scene.text_sprite_groups, group))
++			continue;
++		{
++			const float left = quad->x0 < quad->x1 ? quad->x0 : quad->x1, right = quad->x0 < quad->x1 ? quad->x1 : quad->x0;
++			const float top = quad->y0 < quad->y1 ? quad->y0 : quad->y1, bottom = quad->y0 < quad->y1 ? quad->y1 : quad->y0;
++			const int column0 = left < 0 ? 0 : (int)left / 8, column1 = right > 320 ? 39 : ((int)right - 1) / 8;
++			const int row0 = top < 0 ? 0 : (int)top / 8, row1 = bottom > HEIGHT ? HEIGHT / 8 - 1 : ((int)bottom - 1) / 8;
++
++			for (int row = row0; row <= row1; row++)
++				for (int column = column0; column <= column1; column++)
++				{
++					under[row][column] = 1;
++					any = true;
++				}
++		}
++	}
++	if (!any)
++		return;
++	/* the text's quad goes (the last one takes its place), its runs come in */
++	scene.quads[scene.text_quad] = scene.quads[--scene.out.count];
++	for (int row = 0; row < HEIGHT / 8; row++)
++		for (int column = 0; column < 40;)
++		{
++			const int state = under[row][column];
++			const int start = column;
++			const int before = scene.out.count;
++
++			while (column < 40 && under[row][column] == state)
++				column++;
++			page_quad(layer, scene.text_entry, (float)start * 8, (float)row * 8, (float)column * 8, (float)row * 8 + 8,
++				(float)start * 8, (float)row * 8, 1, 1);
++			if (state && scene.out.count > before)
++				scene.quads[before].weight = scene.text_weight;
++		}
+ }
+ 
+ /* ---- the bitmap layer: 512 pixels a row from the start of video RAM (video.c's draw_bitmap) ---- */
+@@ -1177,11 +1293,12 @@ static scene_slot *sprite_image(const scene_sprite *sprite, const scene_layer *g
+ 		return NULL;
+ 	}
+ 	{
+-		const int image = slot->image;
++		const int image = slot->image, shadow_image = slot->shadow_image;
+ 		const int width = slot->width, height = slot->height;
+ 
+ 		*slot = key;
+ 		slot->image = image;
++		slot->shadow_image = shadow_image;
+ 		slot->width = width;
+ 		slot->height = height;
+ 	}
+@@ -1192,12 +1309,18 @@ static scene_slot *sprite_image(const scene_sprite *sprite, const scene_layer *g
+ 		const int pen_mask = (1 << bits) - 1;
+ 		const int end_pen = (slot->flags & 4) ? 0 : pen_mask;
+ 		const int width = power_of_two(wide), height = power_of_two(sprite->rows);
++		bool shadowed = false;
+ 
+ 		if (slot->image && (slot->width != width || slot->height != height))
+ 		{
+ 			scene.backend->image_free(scene.backend->context, slot->image);
+ 			slot->image = 0;
+ 		}
++		if (slot->shadow_image)
++		{
++			scene.backend->image_free(scene.backend->context, slot->shadow_image);
++			slot->shadow_image = 0;
++		}
+ 		if (!slot->image && !(slot->image = image_with_room(width, height, slot)))
+ 			return NULL;
+ 		slot->width = width;
+@@ -1205,6 +1328,7 @@ static scene_slot *sprite_image(const scene_sprite *sprite, const scene_layer *g
+ 		for (int row = 0; row < sprite->rows; row++)
+ 		{
+ 			uint16_t *out = &scene.pixels[row * width];
++			uint16_t *shadow = &scene.shadow_pixels[row * width];
+ 			const uint32_t bank = sprite->place >> 20;
+ 			uint32_t address = (sprite->place & 0xfffff) + (uint32_t)(row * sprite->words);
+ 			int x = 0;
+@@ -1222,9 +1346,18 @@ static scene_slot *sprite_image(const scene_sprite *sprite, const scene_layer *g
+ 					int pixel;
+ 
+ 					pen = (int)(word >> (32 - bits * (index + 1))) & pen_mask;
++					shadow[x] = 0;
+ 					pixel = (ended || pen == skipped) ? -1 : sprite_pixel(slot, pen);
+ 					if (pixel >= 0 && ((pixel & 0x7fff) == 0x7fff || ((pixel & scene.sprite_bits) & 0x7ffe) == (0x7ffe & scene.sprite_bits)))
+-						pixel = -1;    /* (all ones shows what is below; the shadow pen, without shadows, too) */
++					{
++						/* all ones shows what is below; the shadow pen too, darkened: in the shadow's image */
++						if ((pixel & 0x7fff) != 0x7fff)
++						{
++							shadow[x] = 0x8000;
++							shadowed = true;
++						}
++						pixel = -1;
++					}
+ 					out[x] = pixel < 0 ? 0 : argb1555(scene.palette[palette_index(slot->palette_base, slot->shift,
+ 						pixel & scene.sprite_bits)]);
+ 				}
+@@ -1232,11 +1365,17 @@ static scene_slot *sprite_image(const scene_sprite *sprite, const scene_layer *g
+ 					ended = true;
+ 			}
+ 			for (; x < width; x++)
+-				out[x] = 0;
++				out[x] = shadow[x] = 0;
+ 		}
+ 		scene.backend->image_write(scene.backend->context, slot->image, 0, 0, width, sprite->rows, scene.pixels, width);
+ 		scene.out.images_drawn++;
+ 		scene.out.texels_drawn += width * sprite->rows;
++		if (shadowed && (slot->shadow_image = image_with_room(width, height, slot)) != 0)
++		{
++			scene.backend->image_write(scene.backend->context, slot->shadow_image, 0, 0, width, sprite->rows,
++				scene.shadow_pixels, width);
++			scene.out.texels_drawn += width * sprite->rows;
++		}
+ 	}
+ 	slot->used = scene.frame;
+ 	return slot;
+@@ -1265,6 +1404,23 @@ static void sprite_quads(void)
+ 		quad->v0 = sprite->v0;
+ 		quad->u1 = sprite->u1;
+ 		quad->v1 = sprite->v1;
++		if (slot->shadow_image)
++		{
++			/* the shadow pen: what is under it at half (video.c's mix: shift_down by 1) */
++			const s32_scene_quad drawn = *quad;
++			s32_scene_quad *shade = new_quad(group, slot->shadow_image);
++
++			if (shade)
++			{
++				const int image = shade->image;
++
++				*shade = drawn;
++				shade->image = image;
++				shade->modulate = 0;
++				shade->add = 0;
++				shade->weight = 4;
++			}
++		}
+ 	}
+ }
+ 
+@@ -1316,6 +1472,8 @@ const s32_scene_frame *s32_scene_build(void)
+ 	scene.out.images_drawn = 0;
+ 	scene.out.texels_drawn = 0;
+ 	scene.missing = 0;
++	scene.out.subtract = 0;
++	scene.text_quad = -1;
+ 	if (!s32_display_enabled(0))
+ 	{
+ 		scene.out.missing = 0;
+@@ -1350,6 +1508,7 @@ const s32_scene_frame *s32_scene_build(void)
+ 	if (scene.layers[LAYER_BITMAP].shown)
+ 		bitmap_quads();
+ 	sprite_quads();
++	text_blend_quads();
+ 	scene.out.missing = scene.missing;
+ 	return &scene.out;
+ }
+diff --git a/runtime/src/video_scene_soft.c b/runtime/src/video_scene_soft.c
+index a9c9433..f48d467 100644
+--- a/runtime/src/video_scene_soft.c
++++ b/runtime/src/video_scene_soft.c
+@@ -1,7 +1,8 @@
+ /**
+  *    Name:        video_scene_soft.c
+  *    Description: the scene's quads drawn in software (s32/video_scene_soft.h): the images in RAM, the quads
+- *                 by depth, nearest texels at the pixels' centres as the PowerVR2 takes them. For the computers,
++ *                 by depth, nearest texels at the pixels' centres as the PowerVR2 takes them (blending ones over
++ *                 what is drawn under them). For the computers,
+  *                 to set a scene's frame against video.c's
+  *    Created:     13-11-2026
+  *
+@@ -117,10 +118,51 @@ void s32_scene_soft_draw(const s32_scene_frame *frame, uint32_t *rgb, int stride
+ 				}
+ 				if (!(texel & 0x8000))
+ 					continue;
+-				rgb[(size_t)y * (size_t)stride + (size_t)x] =
+-					channel(texel >> 10 & 31, (int)(quad->modulate >> 16 & 255), (int)(quad->add >> 16 & 255)) << 16 |
+-					channel(texel >> 5 & 31, (int)(quad->modulate >> 8 & 255), (int)(quad->add >> 8 & 255)) << 8 |
+-					channel(texel & 31, (int)(quad->modulate & 255), (int)(quad->add & 255));
++				{
++					uint32_t *at = &rgb[(size_t)y * (size_t)stride + (size_t)x];
++					uint32_t value =
++						channel(texel >> 10 & 31, (int)(quad->modulate >> 16 & 255), (int)(quad->add >> 16 & 255)) << 16 |
++						channel(texel >> 5 & 31, (int)(quad->modulate >> 8 & 255), (int)(quad->add >> 8 & 255)) << 8 |
++						channel(texel & 31, (int)(quad->modulate & 255), (int)(quad->add & 255));
++
++					if (quad->weight < 8)
++					{
++						/* video.c's blend: (top * weight + under * (8 - weight)) / 8, a 5-bit channel each */
++						uint32_t mixed = 0;
++
++						for (int shift = 3; shift <= 19; shift += 8)
++						{
++							const uint32_t top = value >> shift & 31, under = *at >> shift & 31;
++
++							mixed |= ((top * quad->weight + under * (8u - quad->weight)) >> 3) << shift;
++						}
++						value = mixed;
++					}
++					*at = value;
++				}
++			}
++	}
++	if (frame->subtract)
++	{
++		/* the fade: each 5-bit channel less the offset, floored at zero (video.c adds a negative offset) */
++		int take[3];
++
++		for (int channel = 0; channel < 3; channel++)
++			take[channel] = (int)(((frame->subtract >> (16 - 8 * channel) & 255) * 31 + 127) / 255);
++		for (int y = 0; y < 224; y++)
++			for (int x = 0; x < 320; x++)
++			{
++				uint32_t *at = &rgb[(size_t)y * (size_t)stride + (size_t)x];
++				uint32_t value = 0;
++
++				for (int channel = 0; channel < 3; channel++)
++				{
++					const int shift = 19 - 8 * channel;
++					const int left = (int)(*at >> shift & 31) - take[channel];
++
++					value |= (uint32_t)(left > 0 ? left : 0) << shift;
++				}
++				*at = value;
+ 			}
+ 	}
+ }
+-- 
+2.43.0
+
+
+From f4dceb2f4a6d5a2beea83caeac5e604f5bcada10 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 15:56:26 +0100
+Subject: [PATCH 7/8] NAOMI stage 3: the MultiPCM's voices on the AICA
+
+runtime/src/multipcm_aica.c works out the AICA's channel registers from the
+MultiPCM's voices (the same family: 8-bit samples, envelope, level and pan
+steps, LFO depths): the pitch again for 44100 Hz (1.7 cents at worst), the
+key rate scale for the new octave, level glides once a frame, the banks put on
+the 4 MB ROM at key on. sound_chips.c hands the voices to a player of the
+port's (sound_chips_pcm_play_on). ports/naomi/aica_sound.c loads
+/dimm/orunners.pcm into the AICA's RAM and writes the registers over the G2
+bus; the left seat's output (the MultiPCM's second) on both speakers.
+ports/headless/aica_model.c renders the registers in software
+(ORUNNERS_AICA_WAV): against the MultiPCM's own over the arcade race script,
+the loudness a frame correlates 0.89, the spectra 0.98-0.997, the level 1.0.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016VRYRPP2crYKhAiGSakTbz
+---
+ CMakeLists.txt                      |   1 +
+ ports/headless/aica_model.c         | 225 +++++++++++++++++++++++
+ ports/headless/main.c               |   7 +
+ ports/naomi/Makefile                |   4 +-
+ ports/naomi/aica_sound.c            |  92 ++++++++++
+ ports/naomi/aica_sound.h            |  21 +++
+ ports/naomi/build_naomi.sh          |   4 +-
+ ports/naomi/main.c                  |   5 +
+ ports/naomi/naomi.h                 |   1 +
+ runtime/include/s32/multipcm_aica.h |  89 +++++++++
+ runtime/include/sound/chips.h       |  11 ++
+ runtime/src/multipcm_aica.c         | 272 ++++++++++++++++++++++++++++
+ runtime/src/sound_chips.c           |  27 ++-
+ 13 files changed, 748 insertions(+), 11 deletions(-)
+ create mode 100644 ports/headless/aica_model.c
+ create mode 100644 ports/naomi/aica_sound.c
+ create mode 100644 ports/naomi/aica_sound.h
+ create mode 100644 runtime/include/s32/multipcm_aica.h
+ create mode 100644 runtime/src/multipcm_aica.c
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c9c23fc..f57534a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -67,6 +67,7 @@ add_library(s32runtime STATIC
+ 	runtime/src/video_scene_soft.c
+ 	runtime/src/workers.c
+ 	runtime/src/multipcm.c
++	runtime/src/multipcm_aica.c
+ 	runtime/src/sound_chips.c
+ )
+ target_include_directories(s32runtime PUBLIC runtime/include)
+diff --git a/ports/headless/aica_model.c b/ports/headless/aica_model.c
+new file mode 100644
+index 0000000..1e735ca
+--- /dev/null
++++ b/ports/headless/aica_model.c
+@@ -0,0 +1,225 @@
++/**
++ *    Name:        aica_model.c
++ *    Description: a rough AICA in software, to hear on a computer what runtime/src/multipcm_aica.c tells the
++ *                 NAOMI's: ORUNNERS_AICA_WAV=FILE (with --sound-wav OTHER for the MultiPCM's own, to compare;
++ *                 ORUNNERS_AICA_OUTPUT=0 or 1 one output only, as the NAOMI plays the left seat's: 1)
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    Included by main.c. Channels play 8-bit samples looping between LSA and LEA at 44100 x 2^OCT x
++ *    (1024 + FNS) / 1024, linearly interpolated; the envelope is the MultiPCM's own arithmetic (multipcm.c) on the
++ *    AICA's effective rates (2 x R plus the key scale), as the two chips share the scheme; TL 0.375 dB a step,
++ *    DISDL 3 dB a step, DIPAN 3 dB a step. No LFO, no filter. Enough to check the registers, not a model of
++ *    the chip.
++ */
++#include "s32/multipcm_aica.h"
++
++#include <math.h>
++
++#define MODEL_CHANNELS 64
++
++static struct
++{
++	uint16_t regs[MODEL_CHANNELS][0x30 / 4];
++	bool playing[MODEL_CHANNELS];
++	uint32_t position[MODEL_CHANNELS];    /* 16.16 samples */
++	int32_t volume[MODEL_CHANNELS];       /* 10.16, 0x3ff loudest */
++	int state[MODEL_CHANNELS];            /* 0 attack, 1 decay 1, 2 decay 2, 3 release */
++	uint32_t attack_step[64], decay_step[64];
++	int32_t exp_volume[0x400];
++	FILE *wav;
++	uint32_t wav_bytes;
++	multipcm_aica aica;
++	uint32_t fraction;                     /* samples owed, 16.16 */
++} model;
++
++static uint16_t model_reg(int channel, int reg)
++{
++	return model.regs[channel][reg / 4];
++}
++
++static void model_write(void *context, int channel, int reg, uint16_t value)
++{
++	(void)context;
++	model.regs[channel][reg / 4] = value;
++	if (reg == AICA_PLAY_CONTROL && (value & 0x8000))
++		for (int at = 0; at < MODEL_CHANNELS; at++)
++		{
++			const bool on = (model.regs[at][0] & 0x4000) != 0;
++
++			if (on && !model.playing[at])
++			{
++				model.playing[at] = true;
++				model.position[at] = 0;
++				model.volume[at] = 0;
++				model.state[at] = 0;
++			}
++			else if (!on && model.playing[at])
++				model.state[at] = 3;
++		}
++}
++
++static uint8_t model_bank(void)
++{
++	return s32_board.pcm_bank;
++}
++
++static int model_rate(int channel, int rate)
++{
++	const uint16_t envelope = model_reg(channel, AICA_ENVELOPE_2), pitch = model_reg(channel, AICA_PITCH);
++	const int scale = (envelope >> 10) & 0xf;
++	int octave = (pitch >> 11) & 0xf, effective;
++
++	if (rate == 0)
++		return 0;
++	if (octave & 8)
++		octave -= 16;
++	effective = 2 * rate + (scale == 0xf ? 0 : (octave + scale) * 2 + ((pitch >> 9) & 1));
++	return effective < 0 ? 0 : (effective > 63 ? 63 : effective);
++}
++
++static void model_start(void)
++{
++	static const double base_times[64] = {
++		0, 0, 0, 0, 6222.95, 4978.37, 4148.66, 3556.01, 3111.47, 2489.21, 2074.33, 1778.00, 1555.74, 1244.63,
++		1037.19, 889.02, 777.87, 622.31, 518.59, 444.54, 388.93, 311.16, 259.32, 222.27, 194.47, 155.60, 129.66,
++		111.16, 97.23, 77.82, 64.85, 55.60, 48.62, 38.91, 32.43, 27.80, 24.31, 19.46, 16.24, 13.92, 12.15, 9.75,
++		8.12, 6.98, 6.08, 4.90, 4.08, 3.49, 3.04, 2.49, 2.13, 1.90, 1.72, 1.41, 1.18, 1.04, 0.91, 0.73, 0.59,
++		0.50, 0.45, 0.45, 0.45, 0.45
++	};
++	const multipcm_aica_output out = { NULL, model_write };
++
++	for (int rate = 4; rate < 64; rate++)
++	{
++		model.attack_step[rate] = (uint32_t)((float)(0x400 << 16) / (float)(base_times[rate] * 44100.0 / 1000.0));
++		model.decay_step[rate] = (uint32_t)((float)(0x400 << 16) / (float)(base_times[rate] * 14.32833 * 44100.0 / 1000.0));
++	}
++	model.attack_step[63] = 0x400 << 16;
++	for (int index = 0; index < 0x400; index++)
++		model.exp_volume[index] = (int32_t)(4096.0 * pow(10.0, -(96.0 - 96.0 * index / 1024.0) / 20.0));
++	multipcm_aica_init(&model.aica, &out, 0, S32_MULTIPCM_CLOCK, model_bank,
++		getenv("ORUNNERS_AICA_OUTPUT") ? atoi(getenv("ORUNNERS_AICA_OUTPUT")) : -1);
++}
++
++static void model_written(const struct multipcm *chip, int voice, int reg)
++{
++	multipcm_aica_voice_written(&model.aica, chip, voice, reg);
++}
++
++static int32_t model_envelope(int channel)
++{
++	const uint16_t first = model_reg(channel, AICA_ENVELOPE_1), second = model_reg(channel, AICA_ENVELOPE_2);
++	int32_t *volume = &model.volume[channel];
++
++	switch (model.state[channel])
++	{
++		case 0:
++			*volume += (int32_t)(((int64_t)((0x817 << 15) - *volume) * model.attack_step[model_rate(channel, first & 0x1f)]) >> 24);
++			if (*volume >= (0x3ff << 16))
++			{
++				*volume = 0x3ff << 16;
++				model.state[channel] = 1;
++			}
++			break;
++		case 1:
++			*volume -= (int32_t)model.decay_step[model_rate(channel, (first >> 6) & 0x1f)];
++			if (*volume < 0)
++				*volume = 0;
++			if ((*volume >> (16 + 5)) <= 31 - ((second >> 5) & 0x1f))
++				model.state[channel] = 2;
++			break;
++		case 2:
++			*volume -= (int32_t)model.decay_step[model_rate(channel, (first >> 11) & 0x1f)];
++			if (*volume < 0)
++				*volume = 0;
++			break;
++		default:
++			*volume -= (int32_t)model.decay_step[model_rate(channel, second & 0x1f)];
++			if ((second & 0x1f) == 0x1f || *volume <= 0)
++			{
++				*volume = 0;
++				model.playing[channel] = false;
++			}
++			break;
++	}
++	return model.exp_volume[*volume >> 16];
++}
++
++static void model_render(int16_t *out, int count)
++{
++	for (int index = 0; index < count; index++)
++	{
++		double left = 0, right = 0;
++
++		for (int channel = 0; channel < MODEL_CHANNELS; channel++)
++		{
++			const uint16_t control = model_reg(channel, AICA_PLAY_CONTROL), pitch = model_reg(channel, AICA_PITCH);
++			const uint16_t direct = model_reg(channel, AICA_DIRECT), level = model_reg(channel, AICA_LEVEL);
++			const uint32_t start = (uint32_t)(control & 0x7f) << 16 | model_reg(channel, AICA_SAMPLE_LOW);
++			const uint32_t loop = model_reg(channel, AICA_LOOP_START), end = model_reg(channel, AICA_LOOP_END);
++			int octave = (pitch >> 11) & 0xf;
++			uint32_t at, next;
++			double sample, gain, pan_left = 1, pan_right = 1;
++
++			if (!model.playing[channel])
++				continue;
++			if (octave & 8)
++				octave -= 16;
++			at = model.position[channel] >> 16;
++			next = at + 1 >= end ? loop : at + 1;
++			sample = (int8_t)assets_pcm_byte(start + at) * (1.0 - (model.position[channel] & 0xffff) / 65536.0)
++				+ (int8_t)assets_pcm_byte(start + next) * ((model.position[channel] & 0xffff) / 65536.0);
++			model.position[channel] += (uint32_t)(65536.0 * pow(2.0, octave) * (1024 + (pitch & 0x3ff)) / 1024.0);
++			if (end > loop && (model.position[channel] >> 16) >= end)
++				model.position[channel] -= (end - loop) << 16;
++			gain = model_envelope(channel) / 4096.0 * pow(10.0, -0.375 * (level >> 8) / 20.0);
++			gain *= ((direct >> 8) & 0xf) ? pow(10.0, -3.0 * (15 - ((direct >> 8) & 0xf)) / 20.0) : 0;
++			if (direct & 0x10)
++				pan_right = (direct & 0xf) == 0xf ? 0 : pow(10.0, -3.0 * (direct & 0xf) / 20.0);
++			else
++				pan_left = (direct & 0xf) == 0xf ? 0 : pow(10.0, -3.0 * (direct & 0xf) / 20.0);
++			left += sample * 256 * gain * pan_left;
++			right += sample * 256 * gain * pan_right;
++		}
++		out[2 * index] = (int16_t)(left > 32767 ? 32767 : (left < -32768 ? -32768 : left));
++		out[2 * index + 1] = (int16_t)(right > 32767 ? 32767 : (right < -32768 ? -32768 : right));
++	}
++}
++
++static void model_frame(const struct multipcm *chip)
++{
++	int16_t samples[2 * 1024];
++	int count;
++
++	multipcm_aica_frame(&model.aica, chip, 16683);
++	/* a frame of the board's (59.94 Hz) at 44100 Hz */
++	model.fraction += (uint32_t)(65536.0 * 44100.0 / 59.94);
++	count = (int)(model.fraction >> 16);
++	model.fraction &= 0xffff;
++	model_render(samples, count);
++	model.wav_bytes += (uint32_t)fwrite(samples, 4, (size_t)count, model.wav) * 4u;
++}
++
++static void model_finish(void)
++{
++	const uint32_t header[11] = { 0x46464952u, 36 + model.wav_bytes, 0x45564157u, 0x20746d66u, 16, 0x00020001u,
++		44100, 44100 * 4, 0x00100004u, 0x61746164u, model.wav_bytes };
++
++	fseek(model.wav, 0, SEEK_SET);
++	fwrite(header, sizeof(header), 1, model.wav);
++	fclose(model.wav);
++}
++
++/* ORUNNERS_AICA_WAV=FILE: the MultiPCM's voices through multipcm_aica.c and this model, into FILE */
++static void aica_model_attach(void)
++{
++	static const sound_chips_pcm_player player = { model_written, model_frame };
++	const char *path = getenv("ORUNNERS_AICA_WAV");
++
++	if (!path || !(model.wav = fopen(path, "wb")))
++		return;
++	fseek(model.wav, 44, SEEK_SET);
++	model_start();
++	sound_chips_pcm_play_on(&player);
++	atexit(model_finish);
++}
+diff --git a/ports/headless/main.c b/ports/headless/main.c
+index da78339..f39f7e8 100644
+--- a/ports/headless/main.c
++++ b/ports/headless/main.c
+@@ -314,6 +314,10 @@ static void network_frame(void)
+ }
+ #endif
+ 
++#ifndef ORUNNERS_SCAFFOLD
++#include "aica_model.c"
++#endif
++
+ #ifdef ORUNNERS_VIDEO_SCENE
+ #include "s32/video_scene_soft.h"
+ 
+@@ -784,6 +788,9 @@ int main(int argc, char **argv)
+ #endif
+ 		sound_chips_attach();
+ 		sound_cpu_attach();
++#ifndef ORUNNERS_SCAFFOLD
++		aica_model_attach();
++#endif
+ 		if (sound_hashes_path)
+ 			sound_hashes = fopen(sound_hashes_path, "w");
+ 	}
+diff --git a/ports/naomi/Makefile b/ports/naomi/Makefile
+index 1e7d72c..92820a8 100644
+--- a/ports/naomi/Makefile
++++ b/ports/naomi/Makefile
+@@ -8,10 +8,10 @@
+ ROOT := ../..
+ TARGET = orunners_naomi.elf
+ 
+-RUNTIME = machine io sound ym3438 memory_census tasks video multipcm sound_chips sound_cpu \
++RUNTIME = machine io sound ym3438 memory_census tasks video multipcm multipcm_aica sound_chips sound_cpu \
+ 	game assets assets_media assets_midi assets_pack json png inflate
+ GAME_C := $(shell find $(ROOT)/src -name '*.c')
+-OBJS = main.o pvr_video.o naomi_log.o naomi_dimmfs.o naomi_dimmcomms.o workers_none.o \
++OBJS = main.o pvr_video.o aica_sound.o naomi_log.o naomi_dimmfs.o naomi_dimmcomms.o workers_none.o \
+ 	$(addprefix runtime/,$(addsuffix .o,$(RUNTIME))) \
+ 	$(patsubst $(ROOT)/src/%.c,game/%.o,$(GAME_C))
+ 
+diff --git a/ports/naomi/aica_sound.c b/ports/naomi/aica_sound.c
+new file mode 100644
+index 0000000..e505905
+--- /dev/null
++++ b/ports/naomi/aica_sound.c
+@@ -0,0 +1,92 @@
++/**
++ *    Name:        aica_sound.c
++ *    Description: the MultiPCM's voices on the NAOMI's AICA (runtime/src/multipcm_aica.c): the sample ROM in the
++ *                 AICA's RAM, the channels' registers from the SH-4 over the G2 bus
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    KallistiOS's spu_init (at start) leaves the AICA's ARM in a loop of its own and the RAM clear: the channels
++ *    play without it. /dimm/orunners.pcm (naomi_assets.py: the MultiPCM's 4 MB as the board sees them) goes to
++ *    the AICA's RAM at 1 MB; the left seat's output plays on both speakers.
++ */
++#include <kos.h>
++#include <dc/g2bus.h>
++#include <dc/spu.h>
++
++#include "s32/machine.h"
++#include "s32/multipcm_aica.h"
++#include "sound/chips.h"
++#include "aica_sound.h"
++
++#include <stdio.h>
++#include <stdlib.h>
++
++#define PCM_FILE   "/dimm/orunners.pcm"
++#define PCM_BASE   0x100000u
++#define CHANNEL_REGISTER(channel, reg) (0xa0700000u + 0x80u * (uint32_t)(channel) + (uint32_t)(reg))
++
++static multipcm_aica aica;
++static volatile uint32_t register_writes;
++
++static void aica_write(void *context, int channel, int reg, uint16_t value)
++{
++	(void)context;
++	g2_fifo_wait();
++	g2_write_32(CHANNEL_REGISTER(channel, reg), value);
++	register_writes++;
++}
++
++static uint8_t board_banks(void)
++{
++	return s32_board.pcm_bank;
++}
++
++static void voice_written(const struct multipcm *chip, int voice, int reg)
++{
++	multipcm_aica_voice_written(&aica, chip, voice, reg);
++}
++
++static void frame_ended(const struct multipcm *chip)
++{
++	multipcm_aica_frame(&aica, chip, 16683);    /* (the board's 59.94 Hz) */
++}
++
++uint32_t aica_sound_register_writes(void)
++{
++	return register_writes;
++}
++
++bool aica_sound_start(void)
++{
++	static const multipcm_aica_output out = { NULL, aica_write };
++	static const sound_chips_pcm_player player = { voice_written, frame_ended };
++	static uint8_t piece[64 << 10] __attribute__((aligned(32)));
++	FILE *input = fopen(PCM_FILE, "rb");
++	const uint64_t start = timer_ms_gettime64();
++	uint32_t done = 0;
++
++	if (!input)
++	{
++		printf("NAOMI: no %s, no sound (ports/naomi/naomi_assets.py)\n", PCM_FILE);
++		return false;
++	}
++	/* the samples into the AICA's RAM, a piece at a time (store queues) */
++	for (;;)
++	{
++		const size_t got = fread(piece, 1, sizeof(piece), input);
++
++		if (got == 0)
++			break;
++		spu_memload_sq(PCM_BASE + done, piece, (got + 31) & ~(size_t)31);
++		done += (uint32_t)got;
++	}
++	fclose(input);
++	printf("NAOMI: %lu bytes of samples in the AICA's RAM at 0x%x, %lu ms\n", (unsigned long)done, PCM_BASE,
++		(unsigned long)(timer_ms_gettime64() - start));
++	if (done < S32_PCM_ROM_SIZE)
++		return false;
++	spu_master_mixer(15, 1);
++	multipcm_aica_init(&aica, &out, PCM_BASE, S32_MULTIPCM_CLOCK, board_banks, 1);
++	sound_chips_pcm_play_on(&player);
++	return true;
++}
+diff --git a/ports/naomi/aica_sound.h b/ports/naomi/aica_sound.h
+new file mode 100644
+index 0000000..2e222e6
+--- /dev/null
++++ b/ports/naomi/aica_sound.h
+@@ -0,0 +1,21 @@
++/**
++ *    Name:        aica_sound.h
++ *    Description: the MultiPCM's voices on the NAOMI's AICA (aica_sound.c)
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ */
++#ifndef AICA_SOUND_H
++#define AICA_SOUND_H
++
++#include <stdbool.h>
++#include <stdint.h>
++
++/* The samples into the AICA's RAM and the MultiPCM's voices on its channels (after sound_chips_attach): false
++   when there are no samples (then no sound) */
++bool aica_sound_start(void);
++
++/* The channels' register writes so far (the live block) */
++uint32_t aica_sound_register_writes(void);
++
++#endif
+diff --git a/ports/naomi/build_naomi.sh b/ports/naomi/build_naomi.sh
+index 3d68a8f..412c126 100755
+--- a/ports/naomi/build_naomi.sh
++++ b/ports/naomi/build_naomi.sh
+@@ -6,7 +6,7 @@
+ # Needs the sh-elf toolchain and KallistiOS built for KOS_SUBARCH=naomi (KOS_NAOMI, default
+ # /opt/toolchains/dc/kos-naomi, with naomibintool), a computer's build of the game for its assets (cmake, a C
+ # compiler, python3). Output: OUTDIR/orunners_naomi.bin.gz for the WiPi netbooter,
+-# OUTDIR/orunners.pcm (the MultiPCM's samples, for a later stage). What it makes comes from the player's ROM set:
++# OUTDIR/dimm/orunners.pcm (the MultiPCM's samples, for the AICA: aica_sound.c). What it makes comes from the player's ROM set:
+ # never share it.
+ set -e
+ ROM=$(realpath "${1:?usage: build_naomi.sh orunners.zip [OUTDIR]}")
+@@ -22,7 +22,7 @@ make -C "$OUT/host" -j"$(nproc)" orunners_game_headless orunners_assets >> "$OUT
+ "$REPO/build/bin/orunners_game_headless" --frames 1 --hashes /dev/null --assets "$REPO/assets" \
+ 	--write-pack "$OUT/orunners.assets" > /dev/null
+ # 2. the NAOMI's pack: tiles two pens to a byte, the samples apart
+-python3 "$HERE/naomi_assets.py" "$OUT/orunners.assets" "$OUT/dimm/orunners_naomi.assets" "$OUT/orunners.pcm"
++python3 "$HERE/naomi_assets.py" "$OUT/orunners.assets" "$OUT/dimm/orunners_naomi.assets" "$OUT/dimm/orunners.pcm"
+ # 3. the program
+ (source "$KOS_NAOMI/environ.sh" && make -C "$HERE" -j"$(nproc)")
+ # 4. the netboot image: the program in a NAOMI header, the pack after it in the NetDIMM (/dimm)
+diff --git a/ports/naomi/main.c b/ports/naomi/main.c
+index 988d5d2..257de00 100644
+--- a/ports/naomi/main.c
++++ b/ports/naomi/main.c
+@@ -32,6 +32,7 @@
+ #include "naomi.h"
+ #include "naomi_dimmfs.h"
+ #include "pvr_video.h"
++#include "aica_sound.h"
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -242,6 +243,8 @@ static void on_frame_shown(void)
+ 		missing_seen |= stats.missing;
+ 	}
+ 	orunners_naomi_live.quads = (uint32_t)stats.quads;
++	if (orunners_naomi_live.sound_writes != 0xffffffffu)
++		orunners_naomi_live.sound_writes = aica_sound_register_writes();
+ 	orunners_naomi_live.missing = missing_seen;
+ 	orunners_naomi_live.video_memory_free = stats.video_memory_free;
+ 	orunners_naomi_live.textures = (uint32_t)stats.images | (uint32_t)stats.failed << 16;
+@@ -404,6 +407,8 @@ int main(int argc, char **argv)
+ 	printf("NAOMI: %s\n", "sound_chips_attach();");
+ 	sound_chips_attach();
+ 	sound_cpu_attach();
++	if (!aica_sound_start())
++		orunners_naomi_live.sound_writes = 0xffffffffu;
+ 	printf("NAOMI: %s\n", "program_reset();");
+ 	program_reset();
+ 	program_frame_done = on_frame_done;
+diff --git a/ports/naomi/naomi.h b/ports/naomi/naomi.h
+index 22af233..0fcb568 100644
+--- a/ports/naomi/naomi.h
++++ b/ports/naomi/naomi.h
+@@ -50,6 +50,7 @@ typedef struct
+ 	                              coin (cleared once taken), bit 1 START held, bits 8-15 gas, bits 16-23 the wheel
+ 	                              (0x80 centre; 0 = the cabinet's own), bit 2 shift up held, bit 3 shift down */
+ 	uint32_t misaligned;       /* +0x78 misaligned loads and stores done a byte at a time (naomi_log.c) */
++	uint32_t sound_writes;     /* +0x7c the AICA's channel registers written (aica_sound.c); 0xffffffff no samples */
+ } orunners_naomi_live_t;
+ extern volatile orunners_naomi_live_t orunners_naomi_live;
+ 
+diff --git a/runtime/include/s32/multipcm_aica.h b/runtime/include/s32/multipcm_aica.h
+new file mode 100644
+index 0000000..6f117f1
+--- /dev/null
++++ b/runtime/include/s32/multipcm_aica.h
+@@ -0,0 +1,89 @@
++/**
++ *    Name:        multipcm_aica.h
++ *    Description: the MultiPCM's voices on a Yamaha AICA (the NAOMI's and Dreamcast's sound chip): its registers
++ *                 worked out from the voices' (s32/multipcm.h), for a port that has the chip
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    The MultiPCM (YMW-258-F) is the AICA's ancestor: the same 8-bit samples (signed), the same kind of
++ *    envelope (attack, decay 1, decay level, decay 2, release, key rate scale) with rates of twice the bits,
++ *    the same level steps (0.375 dB), pan steps (3 dB) and LFO depths (MAME's multipcm.cpp and the AICA's
++ *    tables agree). Voice n plays on channel n. The samples are the 4 MB ROM in the AICA's RAM at 'base'; a
++ *    voice's start in the MultiPCM's 2 MB of address space is put on the ROM by the banks when it is keyed on
++ *    (s32_board.pcm_bank, sound.c's s32_pcm_sample_read).
++ *
++ *    What differs: the pitch's rate (the MultiPCM plays at its clock / 224, the AICA at 44100 Hz: the octave
++ *    and the fraction are worked out again for the same speed, and the key rate scale for the new octave), the
++ *    attack's start (the MultiPCM's starts part way up), the level's glides (here once a frame), the LFOs'
++ *    frequencies (the AICA's nearest), no effect send (the Multi 32 has no DSP).
++ */
++#ifndef S32_MULTIPCM_AICA_H
++#define S32_MULTIPCM_AICA_H
++
++#include "s32/multipcm.h"
++
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* The AICA's channel registers, as offsets in a channel's 0x80 bytes (16 bits each in 32-bit words) */
++#define AICA_PLAY_CONTROL   0x00    /* KYONEX 15, KYONB 14, SSCTL 10, LPCTL 9, PCMS 8-7, SA 22-16 */
++#define AICA_SAMPLE_LOW     0x04    /* SA 15-0 */
++#define AICA_LOOP_START     0x08
++#define AICA_LOOP_END       0x0c
++#define AICA_ENVELOPE_1     0x10    /* D2R 15-11, D1R 10-6, AR 4-0 */
++#define AICA_ENVELOPE_2     0x14    /* LPSLNK 14, KRS 13-10, DL 9-5, RR 4-0 */
++#define AICA_PITCH          0x18    /* OCT 14-11, FNS 9-0 */
++#define AICA_LFO            0x1c    /* LFORE 15, LFOF 14-10, PLFOWS 9-8, PLFOS 7-5, ALFOWS 4-3, ALFOS 2-0 */
++#define AICA_DSP_SEND       0x20
++#define AICA_DIRECT         0x24    /* DISDL 11-8, DIPAN 4-0 */
++#define AICA_LEVEL          0x28    /* TL 15-8, VOFF 6, LPOFF 5, Q 4-0 */
++
++typedef struct multipcm_aica_output
++{
++	void *context;
++	/* a channel's register (16 bits); a write of AICA_PLAY_CONTROL with bit 15 keys every channel on or off as
++	   its bit 14 says */
++	void (*write)(void *context, int channel, int reg, uint16_t value);
++} multipcm_aica_output;
++
++typedef struct multipcm_aica
++{
++	multipcm_aica_output out;
++	uint32_t base;                         /* where the ROM is in the AICA's RAM */
++	uint32_t rate;                         /* the MultiPCM's samples a second, times 16 (its clock / 14) */
++	uint8_t (*bank)(void);                 /* the board's bank register (s32_board.pcm_bank) */
++	int output;                            /* -1 both outputs, as the AICA's left and right; 0 or 1 one only, on both */
++	struct
++	{
++		bool keyed;                        /* on, as the AICA has it */
++		uint16_t level;                    /* the level now, 7.8 (glides once a frame to the voice's) */
++		uint8_t level_written;
++		int8_t octave;                     /* the AICA's octave, for the key rate scale */
++	} voices[MULTIPCM_VOICES];
++} multipcm_aica;
++
++/* Channels 0-27 off and quiet; the ROM is at 'base' in the AICA's RAM; 'clock' the MultiPCM's. 'output': -1
++   the MultiPCM's two outputs as the AICA's left and right; 0 or 1 that output only, on both. The Multi 32's
++   two outputs are the cabinet's two sides (each seat its sound: sound_chips.c's mix puts the second on the
++   left speaker): the left seat, the left screen, is output 1 */
++void multipcm_aica_init(multipcm_aica *aica, const multipcm_aica_output *out, uint32_t base, uint32_t clock,
++	uint8_t (*bank)(void), int output);
++
++/* A voice register the MultiPCM has just taken (sound_chips_pcm_player's voice_written) */
++void multipcm_aica_voice_written(multipcm_aica *aica, const multipcm *chip, int voice, int reg);
++
++/* The end of a frame of 'microseconds': the levels glide */
++void multipcm_aica_frame(multipcm_aica *aica, const multipcm *chip, uint32_t microseconds);
++
++/* What the AICA's pitch registers are for a MultiPCM voice's octave (4 bits, signed) and pitch (10 bits), at
++   'rate' (its samples a second times 16): OCT << 11 | FNS, and the AICA's octave as a signed number */
++uint16_t multipcm_aica_pitch(uint32_t rate, uint8_t octave, uint16_t pitch, int *aica_octave);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/runtime/include/sound/chips.h b/runtime/include/sound/chips.h
+index 8a076ea..bf0b0d7 100644
+--- a/runtime/include/sound/chips.h
++++ b/runtime/include/sound/chips.h
+@@ -39,6 +39,17 @@ void sound_chips_pcm_banks_changing(void);
+ /* The frame ends at 'time': the samples that start before it are the frame's */
+ void sound_chips_end_frame(uint64_t time);
+ 
++/* A chip of the port's own that plays the MultiPCM's voices (the NAOMI's AICA): told of every voice register
++   written, after the MultiPCM has taken it (its state is the voice's: s32/multipcm.h), and of every frame's end.
++   With one the MultiPCM makes no samples of its own (silence in the frame's) */
++struct multipcm;
++typedef struct sound_chips_pcm_player
++{
++	void (*voice_written)(const struct multipcm *chip, int voice, int reg);
++	void (*frame_ended)(const struct multipcm *chip);
++} sound_chips_pcm_player;
++void sound_chips_pcm_play_on(const sound_chips_pcm_player *player);
++
+ /* The frame's samples of chip 0 (the YM3438) or 1 (the MultiPCM), its two outputs interleaved */
+ const int32_t *sound_chips_frame_samples(int chip, size_t *count);
+ 
+diff --git a/runtime/src/multipcm_aica.c b/runtime/src/multipcm_aica.c
+new file mode 100644
+index 0000000..88281d2
+--- /dev/null
++++ b/runtime/src/multipcm_aica.c
+@@ -0,0 +1,272 @@
++/**
++ *    Name:        multipcm_aica.c
++ *    Description: the MultiPCM's voices on a Yamaha AICA (s32/multipcm_aica.h)
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    The MultiPCM's side follows runtime/src/multipcm.c (MAME's multipcm.cpp); the AICA's registers, the
++ *    Dreamcast's documentation as KallistiOS's sound driver (kernel/arch/dreamcast/sound/arm/aica.c) and MAME's
++ *    sound/aica.cpp use them.
++ */
++#include "s32/multipcm_aica.h"
++
++#include <string.h>
++
++#define AICA_RATE        44100u
++#define DIRECT_LEVEL     0xc      /* -9 dB: about the MultiPCM's own (its pan table's / 4, -12 dB, against
++                                     the reference mix's level: ports/headless/aica_model.c) */
++
++/* The AICA's LFO frequency (LFOF) nearest the MultiPCM's 0.168, 2.019, 3.196, 4.206, 5.215, 5.888, 6.224 and
++   7.066 Hz (the AICA's: 0.17 ... 1.87, 2.27, 2.87, 3.31, 3.92, 4.79, 6.15, 7.18 Hz at 14-21) */
++static const uint8_t lfo_frequencies[8] = { 0, 14, 17, 18, 19, 20, 20, 21 };
++
++uint16_t multipcm_aica_pitch(uint32_t rate, uint8_t octave, uint16_t pitch, int *aica_octave)
++{
++	/* the MultiPCM plays rate x (1024 + pitch) / 1024 x 2^e samples a second, e the octave less one as 4 signed
++	   bits (multipcm.c's update_step); the AICA 44100 x (1024 + FNS) / 1024 x 2^OCT */
++	int exponent = (int)((octave - 1) & 0xf);
++	uint32_t value = (uint32_t)(1024 + (pitch & 0x3ff)) * rate / (16u * AICA_RATE);
++
++	if (exponent & 8)
++		exponent -= 16;
++	while (value >= 2048)
++	{
++		value >>= 1;
++		exponent++;
++	}
++	while (value < 1024)
++	{
++		value <<= 1;
++		exponent--;
++	}
++	if (exponent > 7)
++	{
++		exponent = 7;
++		value = 2047;
++	}
++	if (exponent < -8)
++	{
++		exponent = -8;
++		value = 1024;
++	}
++	if (aica_octave)
++		*aica_octave = exponent;
++	return (uint16_t)((uint32_t)(exponent & 0xf) << 11 | (value - 1024));
++}
++
++/* A 4-bit rate as the AICA's 5 bits: 0 never, 15 at once, twice the bits between (the effective rates, 4 x the
++   bits plus the key's scaling, are the same) */
++static uint16_t rate5(uint8_t rate)
++{
++	return rate == 0 ? 0 : (rate >= 0xf ? 0x1f : (uint16_t)(rate * 2));
++}
++
++static void write(multipcm_aica *aica, int channel, int reg, uint16_t value)
++{
++	aica->out.write(aica->out.context, channel, reg, value);
++}
++
++static void write_pitch(multipcm_aica *aica, const multipcm_voice *voice, int channel)
++{
++	int octave;
++
++	write(aica, channel, AICA_PITCH, multipcm_aica_pitch(aica->rate, voice->octave, voice->pitch, &octave));
++	aica->voices[channel].octave = (int8_t)octave;
++}
++
++static void write_envelope(multipcm_aica *aica, const multipcm_voice *voice, int channel)
++{
++	uint16_t scale = voice->key_rate_scale;
++
++	if (scale != 0xf)
++	{
++		/* the MultiPCM scales by its own octave register, the AICA by OCT: the difference into the scale */
++		int octave = voice->octave & 0xf;
++		const int aica_octave = aica->voices[channel].octave;
++		int scaled;
++
++		if (octave & 8)
++			octave -= 16;
++		scaled = (int)scale + octave - aica_octave;
++		scale = (uint16_t)(scaled < 0 ? 0 : (scaled > 0xe ? 0xe : scaled));
++	}
++	write(aica, channel, AICA_ENVELOPE_1, (uint16_t)(rate5(voice->decay2_reg) << 11 | rate5(voice->decay1_reg) << 6
++		| rate5(voice->attack_reg)));
++	write(aica, channel, AICA_ENVELOPE_2, (uint16_t)(scale << 10 | (voice->decay_level_reg & 0xf) * 2 << 5
++		| rate5(voice->release_reg)));
++}
++
++static void write_lfo(multipcm_aica *aica, const multipcm_voice *voice, int channel)
++{
++	/* triangles both (the MultiPCM's tables), the same depths' steps */
++	write(aica, channel, AICA_LFO, (uint16_t)(lfo_frequencies[voice->lfo_frequency & 7] << 10 | 2 << 8
++		| (voice->vibrato & 7) << 5 | 2 << 3 | (voice->tremolo & 7)));
++}
++
++static void write_pan(multipcm_aica *aica, const multipcm_voice *voice, int channel)
++{
++	/* the MultiPCM's pan: 0 both outputs, 1-7 the first down 3 dB a step (7: off), 9-15 the second down by
++	   16 - pan, 8 neither. The AICA's DIPAN: 0-15 its left down, 16-31 its right down by its low bits; DISDL
++	   3 dB a step. One output only (a side of the cabinet): in the middle, at that output's level */
++	const int pan = (int)(voice->pan & 0xf);
++	int first = 0, second = 0;    /* each output's attenuation in 3 dB steps, 15 off */
++	uint16_t direct;
++
++	if (pan == 8)
++		first = second = 15;
++	else if (pan & 8)
++		second = (16 - pan) == 7 ? 15 : 16 - pan;
++	else if (pan != 0)
++		first = pan == 7 ? 15 : pan;
++	if (aica->output >= 0)
++	{
++		const int down = aica->output == 0 ? first : second;
++
++		direct = (uint16_t)(down >= DIRECT_LEVEL ? 0 : (DIRECT_LEVEL - down) << 8);
++	}
++	else if (first == 15 && second == 15)
++		direct = 0;
++	else if (first)
++		direct = (uint16_t)(DIRECT_LEVEL << 8 | first);
++	else
++		direct = (uint16_t)(DIRECT_LEVEL << 8 | (second ? 0x10 | second : 0));
++	write(aica, channel, AICA_DIRECT, direct);
++}
++
++static void write_level(multipcm_aica *aica, int channel)
++{
++	const uint8_t level = (uint8_t)(aica->voices[channel].level >> 8);
++
++	aica->voices[channel].level_written = level;
++	/* (LPOFF: no filter) */
++	write(aica, channel, AICA_LEVEL, (uint16_t)(level << 8 | 1 << 5));
++}
++
++static void key(multipcm_aica *aica, int channel, bool on, uint32_t start)
++{
++	/* 8-bit samples (PCMS 1), looping (LPCTL) */
++	const uint16_t control = (uint16_t)(1 << 9 | 1 << 7 | ((start >> 16) & 0x7f));
++
++	write(aica, channel, AICA_PLAY_CONTROL, (uint16_t)(0x8000 | (on ? 0x4000 : 0) | control));
++	aica->voices[channel].keyed = on;
++}
++
++void multipcm_aica_init(multipcm_aica *aica, const multipcm_aica_output *out, uint32_t base, uint32_t clock,
++	uint8_t (*bank)(void), int output)
++{
++	memset(aica, 0, sizeof(*aica));
++	aica->output = output;
++	aica->out = *out;
++	aica->base = base;
++	aica->rate = clock / 14;    /* (the samples a second, clock / 224, times 16) */
++	aica->bank = bank;
++	for (int channel = 0; channel < MULTIPCM_VOICES; channel++)
++	{
++		write(aica, channel, AICA_DIRECT, 0);
++		write(aica, channel, AICA_DSP_SEND, 0);
++		write(aica, channel, AICA_LEVEL, 0xff00 | 1 << 5);
++		key(aica, channel, false, 0);
++	}
++}
++
++/* The sample's place in the AICA's RAM: the MultiPCM's 2 MB, the top MB in two windows on the banks' pages */
++static uint32_t sample_place(const multipcm_aica *aica, uint32_t start)
++{
++	uint32_t address = start & 0x1fffff;
++
++	if (address >= 0x100000)
++	{
++		const uint8_t banks = aica->bank ? aica->bank() : 0;
++		const uint32_t page = address < 0x180000 ? (banks & 7u) : ((banks >> 3) & 7u);
++
++		address = (page * 0x80000 + (address & 0x7ffff)) & 0x3fffff;
++	}
++	return aica->base + address;
++}
++
++static void key_on(multipcm_aica *aica, const multipcm_voice *voice, int channel)
++{
++	const uint32_t place = sample_place(aica, voice->start);
++
++	if (aica->voices[channel].keyed)
++		key(aica, channel, false, place);    /* (again from the start: the MultiPCM's retrigger) */
++	write(aica, channel, AICA_SAMPLE_LOW, (uint16_t)(place & 0xffff));
++	write(aica, channel, AICA_LOOP_START, (uint16_t)voice->loop);
++	write(aica, channel, AICA_LOOP_END, (uint16_t)voice->end);
++	write_pitch(aica, voice, channel);
++	write_envelope(aica, voice, channel);
++	write_lfo(aica, voice, channel);
++	write_pan(aica, voice, channel);
++	aica->voices[channel].level = (uint16_t)(voice->dest_total_level << 8);
++	write_level(aica, channel);
++	key(aica, channel, true, place);
++}
++
++void multipcm_aica_voice_written(multipcm_aica *aica, const multipcm *chip, int voice_index, int reg)
++{
++	const multipcm_voice *voice = &chip->voices[voice_index];
++	const int channel = voice_index;
++
++	switch (reg)
++	{
++		case 0:
++			write_pan(aica, voice, channel);
++			break;
++		case 1:    /* a new sample: playing, it starts again (multipcm.c's retrigger) */
++			if (voice->playing)
++				key_on(aica, voice, channel);
++			break;
++		case 2:
++		case 3:
++			write_pitch(aica, voice, channel);
++			if (aica->voices[channel].keyed)
++				write_envelope(aica, voice, channel);
++			break;
++		case 4:
++			if (voice->regs[4] & 0x80)
++				key_on(aica, voice, channel);
++			else if (aica->voices[channel].keyed)
++				key(aica, channel, false, sample_place(aica, voice->start));
++			break;
++		case 5:    /* the level: at once, or glided to (multipcm_aica_frame) */
++			if (voice->regs[5] & 1)
++			{
++				aica->voices[channel].level = (uint16_t)(voice->dest_total_level << 8);
++				write_level(aica, channel);
++			}
++			break;
++		case 6:
++		case 10:
++			write_lfo(aica, voice, channel);
++			break;
++		case 7:
++		case 8:
++		case 9:
++			write_envelope(aica, voice, channel);
++			break;
++		default:
++			break;
++	}
++}
++
++void multipcm_aica_frame(multipcm_aica *aica, const multipcm *chip, uint32_t microseconds)
++{
++	/* the MultiPCM glides 128 levels in 78.2 ms down (louder), in 156.4 ms up: in 7.8 levels a frame */
++	const uint32_t down = (128u << 8) * (microseconds > 100000u ? 100000u : microseconds) / 78200u;
++	const uint32_t up = down / 2;
++
++	for (int channel = 0; channel < MULTIPCM_VOICES; channel++)
++	{
++		const uint16_t target = (uint16_t)(chip->voices[channel].dest_total_level << 8);
++		uint16_t *level = &aica->voices[channel].level;
++
++		if (*level == target)
++			continue;
++		if (*level > target)
++			*level = (uint16_t)((uint32_t)(*level - target) > down ? *level - down : target);
++		else
++			*level = (uint16_t)((uint32_t)(target - *level) > up ? *level + up : target);
++		if ((uint8_t)(*level >> 8) != aica->voices[channel].level_written)
++			write_level(aica, channel);
++	}
++}
+diff --git a/runtime/src/sound_chips.c b/runtime/src/sound_chips.c
+index 5a89fb8..8d94013 100644
+--- a/runtime/src/sound_chips.c
++++ b/runtime/src/sound_chips.c
+@@ -60,6 +60,7 @@ static struct
+ } sound = { .override = NO_TIMER };
+ 
+ static bool sides_together;    /* sound_chips_join_sides */
++static const sound_chips_pcm_player *pcm_player;    /* sound_chips_pcm_play_on */
+ 
+ /* x / d rounded down for d below 65536, with 32-bit divisions only: the SH-4 has no 64-bit division, and libgcc's
+    takes a good part of a frame when called for every sound event (ORUNNERS_NAOMI; exact, the same results) */
+@@ -190,14 +191,17 @@ static void pcm_catch_up(uint64_t time)
+ 	{
+ 		const int count = due - sound.pcm_samples > 256 ? 256 : (int)(due - sound.pcm_samples);
+ 
+-#ifdef ORUNNERS_NO_PCM_SYNTHESIS
+-		/* (the NAOMI's first stages: the samples are not in RAM, so the chip would play silence anyway, at a
+-		   third of a race's frame on the SH-4; they will play on the AICA) */
+-		memset(first, 0, sizeof(first[0]) * (size_t)count);
+-		memset(second, 0, sizeof(second[0]) * (size_t)count);
+-#else
+-		multipcm_generate(&sound.pcm, first, second, count);
++#ifndef ORUNNERS_NO_PCM_SYNTHESIS
++		if (!pcm_player)
++			multipcm_generate(&sound.pcm, first, second, count);
++		else
+ #endif
++		{
++			/* (another chip plays the voices, or none: the NAOMI's first stages, where the chip took a third of
++			   a race's frame on the SH-4 for silence; the AICA plays them, sound_chips_pcm_play_on) */
++			memset(first, 0, sizeof(first[0]) * (size_t)count);
++			memset(second, 0, sizeof(second[0]) * (size_t)count);
++		}
+ 		for (int index = 0; index < count; index++)
+ 			append(&sound.pcm_buffer, first[index], second[index]);
+ 		sound.pcm_samples += (uint64_t)count;
+@@ -214,6 +218,13 @@ static void pcm_write(int offset, uint8_t data)
+ {
+ 	pcm_catch_up(now());
+ 	multipcm_write(&sound.pcm, offset, data);
++	if (pcm_player && offset == 0 && sound.pcm.address < 11 && sound.pcm.current_voice >= 0)
++		pcm_player->voice_written(&sound.pcm, sound.pcm.current_voice, sound.pcm.address);
++}
++
++void sound_chips_pcm_play_on(const sound_chips_pcm_player *player)
++{
++	pcm_player = player;
+ }
+ 
+ void sound_chips_pcm_banks_changing(void)
+@@ -318,6 +329,8 @@ void sound_chips_end_frame(uint64_t time)
+ 
+ 	fm_catch_up(time);
+ 	pcm_catch_up(time);
++	if (pcm_player)
++		pcm_player->frame_ended(&sound.pcm);
+ 	hash = take(&sound.fm_buffer, divide(time + FM_PERIOD - 1, (uint32_t)FM_PERIOD), hash, 0);
+ 	sound.frame_hash = take(&sound.pcm_buffer, divide(time + PCM_PERIOD - 1, (uint32_t)PCM_PERIOD), hash, 1);
+ 	mix();
+-- 
+2.43.0
+
+
+From 676f1c23d8228b84b108a10c4508161ad9d23864 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 15:57:14 +0100
+Subject: [PATCH 8/8] NAOMI: README for stages 2 and 3, live.py shows
+ misaligned accesses and the AICA's writes
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016VRYRPP2crYKhAiGSakTbz
+---
+ ports/naomi/README.md | 74 +++++++++++++++++++++++++++++--------------
+ ports/naomi/live.py   |  8 +++--
+ 2 files changed, 56 insertions(+), 26 deletions(-)
+
+diff --git a/ports/naomi/README.md b/ports/naomi/README.md
+index 465f25d..2eda96e 100644
+--- a/ports/naomi/README.md
++++ b/ports/naomi/README.md
+@@ -6,14 +6,18 @@ Work in progress for a Crazy Taxi upright with a NAOMI 2 and a 512 MB NetDIMM lo
+ 
+ ## Stages
+ 
+-1. **Boot and measure** (this directory today): the game's C, the board and the sound program on the SH-4; the
+-   cabinet's controls through the JVS; `runtime/src/video.c` drawn every few frames into a framebuffer, only to
+-   see something; the time each part takes, read live from the Raspberry (`live.py`). **Runs on the board**
+-   (2026-11-13, NAOMI 2 of a Crazy Taxi upright): see "Measured on the board".
+-2. **PowerVR2 renderer** in place of `video.c`: tilemap pages as textures, NBG0 as a scrolled quad, NBG2 a strip a
+-   line (row scroll and row select), sprites as quads from a texture cache, priorities as depth, fades.
+-3. **Sound on the AICA:** the MultiPCM's 4 MB of samples (`orunners.pcm`) in the AICA's RAM, its 28 voices on AICA
+-   channels. The YM3438 only gives the sound program its timers: OutRunners plays no FM note.
++1. **Boot and measure**: the game's C, the board and the sound program on the SH-4; the cabinet's controls through
++   the JVS; the time each part takes, read live from the Raspberry (`live.py`). Done (2026-11-13).
++2. **PowerVR2 renderer** in place of `video.c` (`ORUNNERS_VIDEO_SCENE`: runtime/src/video_scene.c makes the frame a
++   scene of textured quads, `pvr_video.c` draws it): tilemap pages and the text map as textures, NBG0 scrolled and
++   zoomed, NBG2 a strip a line (row scroll and row select), the bitmap layer (the road) by rows, sprites as quads
++   from a texture cache, priorities as depth, colour offsets as vertex colours, the sprites' shadow pen, the text
++   layer's blending over the sprites, fades taken away exactly. **Runs on the board at 60 fps** in attract mode and
++   most of a race (2026-11-13); the shadows, blending and fades are checked on a computer only so far.
++3. **Sound on the AICA** (`aica_sound.c`, runtime/src/multipcm_aica.c): the MultiPCM's 4 MB of samples
++   (`/dimm/orunners.pcm`) in the AICA's RAM, its 28 voices on AICA channels whose registers the SH-4 works out from
++   the MultiPCM's; the left seat's sound on both speakers. The YM3438 only gives the sound program its timers:
++   OutRunners plays no FM note. Checked on a computer (`ORUNNERS_AICA_WAV`, below); **not yet heard on the board**.
+ 4. **A converter for Windows**: drop `orunners.zip`, get the `.bin.gz`.
+ 
+ ## Build
+@@ -39,17 +43,11 @@ compiles with sh-elf-gcc 15.2.0 (`-m4-single -ml -O2`): 490 KB of code, 5.8 MB o
+ 
+ ## Measured on the board (2026-11-13)
+ 
+-Attract mode, a frame drawn every 60 (`live.py draw 60`), after the fixes below:
+-
+-| Part | Time a frame |
+-|---|---:|
+-| The game's C, the board, the interrupts | ~8 ms |
+-| The sound program and the chips (MultiPCM in software, FM off) | ~2.9 ms |
+-| `video.c`'s frame + the copy to the screen | **~360 ms** (about 22 frames) |
+-
+-So 57-60 game frames a second without the picture, and the software video at about 3 frames a second: the PowerVR2
+-renderer (stage 2) is what the port needs, as the computer's measurements said. A profile of the drawn frames:
+-`page_pixel`, `scrolled_pixel`, `zoomed_pixel`, `mix_rows`, the sprites' rows, and 32-bit divisions inside them.
++Stage 1 (the software `video.c`, a frame drawn every 60): the game's C, the board and the interrupts ~8 ms a frame,
++the sound program and the chips ~2.9 ms (the MultiPCM in software), `video.c`'s frame **~360 ms**: hence stage 2.
++Stage 2, a race (`race.py`): the game ~8 ms, the sound ~1.1 ms (no MultiPCM synthesis), the scene built ~4-5 ms and
++handed to the PowerVR2 ~1.2 ms: 60 fps, with dips where many colours change at once (palette cycling), which tables
++of colours by cell and the bitmap's rows redrawn only where seen should cut (not yet measured on the board).
+ 
+ What it took to run (each found with the peeks):
+ - **KallistiOS stops a thread whose stack pointer is below its stack's base** ("Thread stack underrun", checked at
+@@ -61,6 +59,13 @@ What it took to run (each found with the peeks):
+ - **The FM synthesis**, for a chip that plays no note in OutRunners: off (`ORUNNERS_NO_FM_SYNTHESIS`; the timers
+   stay). **The sound tests' hashes** and **the sprites' erase for the screen not shown**: off on the NAOMI.
+ - `video.c`'s 4 MB of state from the heap (`ORUNNERS_VIDEO_ON_HEAP`).
++- **Misaligned reads**: the V70 reads 16-bit words at odd addresses (src/objects/scenery.c's flashing scenery, the
++  game froze there); the SH-4 faults. `naomi_log.c` does them a byte at a time in the exception handler, in a
++  branch's delay slot too (counted in the live block, +0x78).
++- **The PowerVR2's wait is the vblank's**: `vid_waitvbl` on top of `pvr_wait_ready` halved the frame rate.
++- **newlib's `memcmp` goes a byte at a time** on the SH-4: the scene compares by words (`same()`).
++- **The MultiPCM in software** made a third of a race's frame (for silence: no samples in RAM): off
++  (`ORUNNERS_NO_PCM_SYNTHESIS`), now the AICA plays the voices.
+ Checked on a computer: with `ORUNNERS_NAOMI ORUNNERS_NO_FM_SYNTHESIS ORUNNERS_PACKED_PENS`, the game state and video
+ hashes of 3,501 frames of attract and race are the same as the normal build's.
+ 
+@@ -68,6 +73,26 @@ Testing traps: an unanswered peek keeps the NetDIMM busy for up to a minute (sen
+ `info()` to answer); and the Claude workspace's copy to the user's computer can deliver an older file under the same
+ staged name (give each image a new name, check its md5).
+ 
++## Checked on a computer
++
++```sh
++# the scene drawn in software against video.c, a line every 30 frames (pixels that differ, quads, blending)
++cmake -B build-scene -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=-DORUNNERS_VIDEO_SCENE
++make -C build-scene orunners_game_headless
++ORUNNERS_SCENE_COMPARE=/tmp/scene build/bin/orunners_game_headless --script race_arcade.txt --hashes /dev/null \
++    --video-hashes /dev/null --screens 1 --assets orunners.assets
++# the AICA's registers heard through a rough model of the chip, against the MultiPCM's own sound
++ORUNNERS_AICA_OUTPUT=1 ORUNNERS_AICA_WAV=aica.wav build/bin/orunners_game_headless --script race_arcade.txt \
++    --hashes /dev/null --screens 1 --assets orunners.assets --sound-wav /dev/null
++build/bin/orunners_game_headless --script race_arcade.txt --hashes /dev/null --screens 1 \
++    --assets orunners.assets --sound-wav reference.wav
++```
++
++Results (2026-11-13, the arcade race script, 9,000 frames): the scene's pixels differing from `video.c`'s, 0.68 %
++over all frames (the edges of zoomed sprites; shadows that overlap darken twice; a fade's shadows a little darker).
++The AICA model's sound against the MultiPCM's (its left speaker, the left seat): loudness a frame correlated 0.89,
++spectra over 4 s 0.98-0.997, the same level. (`race_arcade.txt` is in naomi-wheel-games, `outrunners/`.)
++
+ ## On the board
+ 
+ The controls (values of the Crazy Taxi upright, widening by themselves): wheel analog 0, gas 1, brake 2; the
+@@ -78,8 +103,7 @@ Live figures, on the Raspberry of the cabinet (DragonMinded's netdimm.py), with
+ prints:
+ 
+ ```sh
+-python3 live.py 10.0.0.4 0x8c...... fps 60     # game fps, frames drawn, us of the game, sound and video
+-python3 live.py 10.0.0.4 0x8c...... draw 8     # a frame drawn every 8
++python3 live.py 10.0.0.4 0x8c...... fps 60     # game fps, us of the game, sound and video, misaligned, AICA writes
+ python3 live.py 10.0.0.4 0x8c...... log        # the console
+ ```
+ 
+@@ -87,7 +111,8 @@ A failure, or no game frame for 10 s, puts the console's last lines on the scree
+ pr for `sh-elf-addr2line` on `orunners_naomi.elf`); an exception nothing handles writes its code, pc, pr and address
+ to the console and keeps answering peeks (the live block's version becomes 0xdeadXXXX).
+ 
+-More tools for the Raspberry: `watch.py LIVE [ADDR VALUE]` (a poke, then the console's lines as they come, until the
++`race.py LIVE SECONDS` plays without anyone at the cabinet (a coin, START, the gas down and the wheel swinging,
++through the live block's `test_inputs`) and prints the same figures. More tools for the Raspberry: `watch.py LIVE [ADDR VALUE]` (a poke, then the console's lines as they come, until the
+ peeks stop: the last thing said before a crash) and `profile.py LIVE [DRAW_EVERY]` (the game thread's pc sampled by
+ a thread of the program, `sh-elf-addr2line -f` names them). Test builds: `make EXTRA=-DORUNNERS_NAOMI_STAGE=N` stops
+ `main()` at stage 0 (KallistiOS and the peeks), 1 (the assets read) or 2 (everything ready; waits for a poke of
+@@ -99,5 +124,8 @@ The NetDIMM files, the peeks, the console ring and `naomi_pack.py` come from the
+ native port ([0skarzer0/daytona-arcade-recomp](https://github.com/0skarzer0/daytona-arcade-recomp), branch
+ `naomi-native`); the peek protocol and the cartridge port's reads follow DragonMinded's
+ [libnaomi](https://github.com/DragonMinded/libnaomi) and [netboot](https://github.com/DragonMinded/netboot). Built
+-on [KallistiOS](https://github.com/KallistiOS/KallistiOS). The game's C, its runtime and its tools are cheviman's
++on [KallistiOS](https://github.com/KallistiOS/KallistiOS) (its PowerVR2 and AICA support; the AICA's registers as
++its sound driver and [MAME](https://github.com/mamedev/mame)'s `sound/aica.cpp` use them). The MultiPCM's
++behaviour is MAME's `sound/multipcm.cpp` (Miguel Angel Horna), as runtime/src/multipcm.c follows it; the
++System 32 video chip's, MAME's `sega/segas32_v.cpp` (Aaron Giles), as runtime/src/video.c follows it. The game's C, its runtime and its tools are cheviman's
+ (Sebastian Toyos). OutRunners is a trademark of SEGA; this project is not affiliated with or endorsed by SEGA.
+diff --git a/ports/naomi/live.py b/ports/naomi/live.py
+index 5324d25..e187da1 100644
+--- a/ports/naomi/live.py
++++ b/ports/naomi/live.py
+@@ -21,7 +21,8 @@ from netdimm import NetDimm, PeekPokeTypeEnum as T
+ 
+ FIELDS = ('magic version seconds game_frames drawn_frames game_us sound_us video_us worst_frame_us frames_total '
+           'dimm_requests log_lines log_count log_width log_next heap_left draw_every inputs profile_pcs profile_count '
+-          'profile_size quads texels_drawn missing video_memory_free textures build_us wait_us submit_us').split()
++          'profile_size quads texels_drawn missing video_memory_free textures build_us wait_us submit_us test_inputs '
++          'misaligned sound_writes').split()
+ 
+ 
+ def main():
+@@ -56,12 +57,13 @@ def main():
+                 i = live['inputs']
+                 print('%5ds  game %2d fps  drawn %2d  game %5d us  sound %5d us  video %5d us (build %d wait %d submit %d)  worst %6d us  '
+                       'quads %3d  texels %6d/s  missing %04x  textures %d (%d failed)  vram %d KB  '
+-                      'wheel %02x gas %02x brake %02x E %02x' % (
++                      'wheel %02x gas %02x brake %02x E %02x  misaligned %d  aica writes %s' % (
+                           live['seconds'], live['game_frames'], live['drawn_frames'], live['game_us'],
+                           live['sound_us'], live['video_us'], live['build_us'], live['wait_us'], live['submit_us'],
+                           live['worst_frame_us'], live['quads'],
+                           live['texels_drawn'], live['missing'], live['textures'] & 0xffff, live['textures'] >> 16,
+-                          live['video_memory_free'] // 1024, i & 255, i >> 8 & 255, i >> 16 & 255, i >> 24), flush=True)
++                          live['video_memory_free'] // 1024, i & 255, i >> 8 & 255, i >> 16 & 255, i >> 24, live['misaligned'],
++                          'NO SAMPLES' if live['sound_writes'] == 0xffffffff else live['sound_writes']), flush=True)
+             time.sleep(0.25)
+ 
+ 
 -- 
 2.43.0
 
