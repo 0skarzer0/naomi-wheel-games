@@ -1,5 +1,7 @@
 # Hardware del mueble Crazy Taxi (referencia para todos los proyectos)
 
+> 🇬🇧 **English:** [the English version is at the end of this page ↓](#english)
+
 Valores medidos en el mueble real. Úsalos en cualquier port o parche para que los controles
 respondan igual en todos los juegos.
 
@@ -69,3 +71,81 @@ Initial D un toque corto de START hace de «vista» (el SÍ de comprar tarjeta) 
 - **Palanca de 2 posiciones con retorno** → se usa como cambio LOW/HIGH con enclavamiento por software
   (adelante = HIGH, atrás = LOW). Juegos con H de 4/6 velocidades quedan peor.
 - **Solo un jugador** con controles de coche; un segundo jugador no tiene mandos.
+
+---
+
+## English
+
+*Translation of the Spanish text above. If the two ever disagree, the Spanish one is the up-to-date one.*
+
+### Hardware of the Crazy Taxi cabinet (reference for every project)
+
+Values measured on the real cabinet. Use them in any port or patch so that the controls respond the same in every
+game.
+
+#### Board and loading
+
+| Item | Details |
+|---|---|
+| Board | NAOMI 2 with a multi-BIOS (export BIOS EPR-23608B; not uploaded to the repository). **Multi-BIOS version unconfirmed**: old ones hang 18 Wheeler and Initial D in attract mode (see [pi60-juegos.md](pi60-juegos.md)); v2.01 (rev C/H) fixes at least some hangs |
+| Game memory | 512 MB NetDIMM |
+| Loading | Netboot from a Raspberry Pi 3 running WiPi Netbooter: `.bin.gz` files + one line in `romsinfo.csv` |
+| Monitor | 31 kHz (640x480), not tri-sync |
+
+#### Controls (JVS, read with KallistiOS's MIE driver)
+
+| Control | JVS input | Measured values (2026-11-02) |
+|---|---|---|
+| Wheel | Analogue 0 | left **8448** · centre **33792** · right **60160** |
+| Accelerator | Analogue 1 | released **11776** · floored **47104** |
+| Brake | Analogue 2 | released **14080** · floored **47360** |
+| Shifter | Player 1 up / down | 2 positions with a spring (returns to the centre): forward = up, back = down |
+| START | Player 1 START | Lit button (JVS output) |
+| Coin mech | Coin counter 1 | Read by **counter difference** (`coin[i].count`); the driver's coin pulse arrives already cleared |
+| TEST / SERVICE | Service panel | |
+
+Notes:
+- Recommended pedal margin: ~6 % at each end; widen the calibration on the fly if a control goes past the measured
+  values.
+- Test and calibration program: `naomi/jvstest/` in
+  [dreamcast-cannonball (branch naomi)](https://github.com/0skarzer0/dreamcast-cannonball/tree/naomi/naomi/jvstest).
+- Implementations using these values: `src/main/sdl2/input.cpp` (`poll_naomi`) in Cannonball and
+  `src/naomi/naomi_input.cpp` in mame4all-naomi.
+
+#### Button combinations in use
+
+| Project | Brake + START | Others |
+|---|---|---|
+| mame4all-naomi | — (START pressed = credit, released = START) | START 3 s = FPS counter |
+| Cannonball | Main menu | START held + shifter back = change view; START acts on release |
+
+To do: settle on a common standard.
+
+#### Games' default settings (free play, silent attract)
+
+The NAOMI header of each image holds, from `0x1E0` to `0x25F`, the default values of the system menu (16 bytes per
+region): `+0` = 1 applies them, `+1` bit 1 = attract without sound, `+3` = 27 is FREE PLAY. The BIOS only applies them
+when it initialises the settings of a game different from the previous one. Tools: `tools/system_defaults.py` (one
+image) and `tools/sysdef_all.py` (all those on the Pi) in [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches).
+
+#### Card reader
+
+Games that save on a magnetic card (Initial D) use a Sanwa CRP-1231BR-10 reader on serial port CN8. Instead of a cable
+and an adapter, [naomi-ct-patches/card-reader](https://github.com/0skarzer0/naomi-ct-patches/tree/main/card-reader)
+adds a virtual reader in software to the image; the card is a file on the Pi. With the control patch, in Initial D a
+short press of START acts as "view" (the YES to buying a card) and holding it is START (the NO).
+
+#### Real-hardware traps (Flycast does not reproduce them)
+
+- The VRAM **does not take byte writes**: use 16/32-bit writes or store queues.
+- PVR DMA hangs on the NAOMI.
+- Emulated CPU cores (FAMEC, RAZE, Musashi, T11, 6502) run **2–5 times slower** than in Flycast: always measure on the
+  board.
+
+#### What it means for the games
+
+- **Absolute wheel** → perfect for games with a wheel/potentiometer. For spinner/dial (endless rotation) the wheel's
+  position has to be turned into a turning speed.
+- **2-position spring-return shifter** → used as a LOW/HIGH shift latched in software (forward = HIGH, back = LOW).
+  Games with a 4/6-speed H gate fare worse.
+- **Only one player** has car controls; a second player has no controls.

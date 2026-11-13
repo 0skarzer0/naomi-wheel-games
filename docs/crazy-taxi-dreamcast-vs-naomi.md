@@ -1,5 +1,7 @@
 # Crazy Taxi: Dreamcast frente a NAOMI — qué cambió SEGA
 
+> 🇬🇧 **English:** [the English version is at the end of this page ↓](#english)
+
 Comparación del mismo juego compilado por SEGA (Hitmaker) para las dos máquinas, para saber qué necesita un juego
 de Dreamcast para funcionar en NAOMI (y al revés). Aquí sólo se publican los hallazgos, nunca los datos del juego.
 
@@ -53,3 +55,59 @@ modo test en `0x3c0` (`rom 0x300000 → 0x0c020000, 0x100000`), puntos de entrad
    que usa un juego NAOMI.
 3. Lo que queda de Dreamcast es lo que el cargador ya sustituye (GD-ROM → NetDIMM, mando maple → JVS, flash) más
    manías de librería como la espera del bit 5 de `SB_FFST` de las Shinobi antiguas.
+
+---
+
+## English
+
+*Translation of the Spanish text above. If the two ever disagree, the Spanish one is the up-to-date one.*
+
+### Crazy Taxi: Dreamcast versus NAOMI — what SEGA changed
+
+A comparison of the same game built by SEGA (Hitmaker) for both machines, to learn what a Dreamcast game needs to
+work on the NAOMI (and the other way round). Only the findings are published here, never the game's data.
+
+| Version | Program | Address | Libraries |
+|---|---|---|---|
+| Crazy Taxi (USA), Dreamcast GD-ROM | `1ST_READ.BIN`, 1.47 MB | `0x8c010000` | Shinobi 1.62zr, Kamui, ADX (CRI) |
+| Crazy Taxi 2 (USA), Dreamcast GD-ROM | `1ST_READ.BIN`, 1.45 MB | `0x8c010000` | Shinobi 1.76, Kamui, ADX, libsnd |
+| Crazy Taxi (840-0002), NAOMI cartridge | ROM `0x000000-0x2e0000` | `0x8c020000`, entry `0x8c021000` | libam 1.22 ("NAOMI LIBRARY FOR AM"), Mioz 1.10 ("NAOMI ARCADE CONTROLLER": JVS, EEPROM, INTR), Kamui |
+
+NAOMI cartridge header: program load list at `0x360` (`rom 0x0 → 0x0c020000, 0x2e0000 bytes`), test mode at `0x3c0`
+(`rom 0x300000 → 0x0c020000, 0x100000`), entry points at `0x420` (`0x0c021000` game, `0x0c020000` test).
+
+#### What is the same
+
+* **The graphics code (Kamui) is the same**, byte for byte except for addresses. Both versions:
+  * set `SB_LMMODE0` (`0xa05f6884`) to **0** in the same routine (DC `0x8c15317c`, NAOMI `0x8c0892fc`);
+  * upload textures by **DMA channel 2 to `0x11000000 | offset in VRAM`** (DC `0x8c157962`, NAOMI `0x8c08ae7a`).
+
+  In other words, the direct texture path through `0x11xxxxxx` with `LMMODE0 = 0` **does work on a NAOMI**.
+* **Holly's system bus initialisation table is identical**: the same values in every DMA, maple, G1 and G2 register
+  (`0xa05f6800-0xa05f7c80`), including the G2 wait times (`0xa05f7890 = 0x1b`, `0xa05f7894 = 0x271`) and the protection
+  registers (`MDAPRO 0x61557f00`, `G2APRO 0x46597f00`, `PDAPRO 0x67027f00`).
+* **The sound start-up is the same code**: it writes `0xa0702800`, stops the ARM (`0xa0702c00 |= 1`), copies the driver
+  to `0xa0800000`, writes the mailbox at `0xa0800050/60` reading back until it sticks, and releases the ARM.
+
+#### What SEGA changed for the NAOMI
+
+* **No Shinobi.** The NAOMI version does not carry the Shinobi system library or its `syG2` module: it writes the AICA's
+  RAM and registers directly. The Dreamcast versions go through Shinobi's G2 functions, which wait on `SB_FFST`
+  (`0xa05f688c`): Crazy Taxi and Crazy Taxi 2 check **bits 0 and 4** (`tst #1`, `tst #16`). The older Shinobi 1.43 of
+  Namco Museum checks **bit 5** (`tst #32`) with interrupts masked: that is our suspect for its hang on the NAOMI 2.
+* **The data comes from the cartridge, not the GD-ROM**: the NAOMI version reads the ROM board registers
+  `0xa05f7000-0xa05f7074` and sets the G1 bus timings for it (`0xa05f7480`, `7484`, `7490`, `74a0`, `74a4`, `74b8`). The
+  Dreamcast one only writes `7490/7494/74a0` (boot table at `0x8c01106c`).
+* **The controls** go through JVS (Mioz library, over the maple bus to the MIE) instead of Dreamcast maple pads, and the
+  settings are kept in the NAOMI's EEPROM instead of flash/VMU.
+* **Video**: the Dreamcast version programs the display itself (`FB_R_SOF1`, `FB_R_SIZE`, border, `SPG_*` —
+  `0xa05f8040-0xa05f8064`, `80c4`, `80dc`, `8134-8150`); the NAOMI one touches far fewer (it is always VGA at 31 kHz).
+
+#### What it means for loading Dreamcast games on the NAOMI (dc2naomi)
+
+1. **The texture path is not the problem on its own**: SEGA's own NAOMI game uses `0x11000000` with `LMMODE0 = 0`. Our
+   test on the board said that path wrote nothing, but that was the first case, before any TA reset; the other two came
+   after one. The new test (`nmus_ch2`) repeats the `0x11` case before and after resetting the TA to settle it.
+2. **Holly needs nothing special**: the Dreamcast game's own initialisation table is exactly the one a NAOMI game uses.
+3. What remains of the Dreamcast is what the loader already replaces (GD-ROM → NetDIMM, maple pad → JVS, flash) plus
+   library quirks such as the wait on bit 5 of `SB_FFST` in old Shinobi versions.

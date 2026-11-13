@@ -1,5 +1,7 @@
 # Juegos para el mueble Crazy Taxi: catálogo y compatibilidad
 
+> 🇬🇧 **English:** [the English version is at the end of this page ↓](#english)
+
 Qué se puede jugar en un mueble Crazy Taxi NAOMI con sus controles, por niveles de dificultad. **Qué está cargado hoy
 en la Raspberry del mueble y qué está probado en placa:** [pi60-juegos.md](pi60-juegos.md) (la tabla de estado al
 día). Las versiones de MAME/FBA y las decompilaciones candidatas: [investigacion.md](investigacion.md).
@@ -96,3 +98,107 @@ Qué cambió SEGA entre el Crazy Taxi de Dreamcast y el de NAOMI: [crazy-taxi-dr
 Algunos juegos nativos esperan la palanca o los botones en otros pines que el mueble Crazy Taxi. En vez
 de recablear, se parchea el código del juego. Todo está en el repositorio [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches):
 tabla por juego, procedimiento y herramientas (`apply_patch.py`, desensamblador e intérprete SH-4).
+
+---
+
+## English
+
+*Translation of the Spanish text above. If the two ever disagree, the Spanish one is the up-to-date one.*
+
+### Games for the Crazy Taxi cabinet: catalogue and compatibility
+
+What can be played on a Crazy Taxi NAOMI cabinet with its controls, by difficulty. **What is loaded today on the
+cabinet's Raspberry Pi and what has been tested on the board:** [pi60-juegos.md](pi60-juegos.md) (the up-to-date status
+table). Candidate MAME/FBA versions and decompilations: [investigacion.md](investigacion.md).
+
+#### Quick summary by level
+
+| Level | Meaning | Games |
+|---|---|---|
+| ✅ **Already works** | Boots by netboot today | Crazy Taxi, Jambo! Safari (lasso with a patch), 18 Wheeler, NAOMI 2 games (Club Kart, King of Route 66, Wild Riders), converted Atomiswave games (Maximum Speed, Faster Than Speed), **Cannonball (OutRun)**, **native Daytona USA**, **Super Sprint** (MAME4ALL), the Dreamcast games converted with dc2naomi |
+| 🧪 **In progress** | Partly works or untested on the board | **OutRunners** (native port: picture at 60 fps on the board, sound untested) |
+| ⚠️ **Done, slow on the board** | 60 in Flycast; ~46 fps and hangs on the board | **Hang-On** and **Konami GT** (ported MAME4ALL) |
+| 🟢 **Easy** | Same MAME4ALL port, only the driver has to be added | Super Hang-On, Enduro Racer, Spy Hunter, Max RPM, Turbo, Sprint 2, Arkanoid… |
+| 🟡 **Medium** | Needs porting another MAME/FBA version or a native port | Super Off Road, Turbo OutRun, Super Monaco GP (Pole Position and Power Drift are already played through dc2naomi) |
+| 🟠 **Hard** | A lot of work or tight performance | Wipeout (DC port), Mario Kart 64 (DC port, converted, untested on the board) |
+| 🔴 **Not viable (today)** | Hardware too powerful or no code | Emulated Model 2/3 (Sega Rally, Scud Race, Daytona 2), Ridge Racer arcade, Virtua Racing arcade, Initial D (cards), Sega Driving Simulator (3 monitors) |
+
+#### Native games (no emulation)
+
+##### NAOMI
+
+| Game | Original controls | On the Crazy Taxi cabinet | Notes |
+|---|---|---|---|
+| **Crazy Taxi** | Wheel, 2 pedals, D/R shifter | ✅ Perfect | It is the cabinet's own game |
+| **Jambo! Safari** | Wheel, shifter, pedals | ✅ With a patch (tested on the board) | Same wheel as Crazy Taxi, but it reads the shifter on player 2's inputs: without the [control patch](https://github.com/0skarzer0/naomi-ct-patches/tree/main/jambo-safari) the lasso cannot be thrown |
+| **18 Wheeler: American Pro Trucker** (STD/DX) | Force-feedback wheel, 3-position shifter (low/high/reverse), 2 pedals | ✅ Playable | Wheel with a different stop (≈320°), plays well |
+| **Wave Runner GP** | Jet-ski handlebar | ✅ Playable | The handlebar is analogue like a wheel |
+| **Ferrari F355 Challenge** (twin/deluxe) / **F355 Challenge 2** | Wheel, 3 pedals, 6-speed shifter (or paddles) | ⚠️ To check | The deluxe uses 3 boards/3 monitors; try the twin/single-screen version and automatic gears |
+
+Not NAOMI although sometimes mistaken for it: *Emergency Call Ambulance* is **Model 3**.
+
+##### NAOMI 2 (they need a NAOMI 2 board; the cabinet's multi-BIOS board is one)
+
+| Game | Format | On the Crazy Taxi cabinet | Notes |
+|---|---|---|---|
+| **Club Kart: European Session** / **Club Kart Prize** | Cartridge | ✅ | Karts, wheel + pedals |
+| **The King of Route 66** | Cartridge | ✅ | Sequel to 18 Wheeler |
+| **Wild Riders** | Cartridge | ✅ (handlebar → wheel) | Motorbikes; in some sets the rear brake has to be adjusted in the test menu |
+| **Soul Surfer** | Cartridge | ⚠️ | Surfboard, awkward control with a wheel |
+| **Initial D Arcade Stage 1/2/3** | GD-ROM | 🔴/⚠️ | Asks for a magnetic card reader; find out whether it boots without one |
+| **Sega Driving Simulator** | — | 🔴 | 3 monitors, driving-school system |
+
+##### Atomiswave → NAOMI (Darksoft's conversions)
+
+The **AW2NAOMI** conversions are loaded by netboot just like a normal NAOMI `.bin`. The community's advice:
+**a NetDIMM with 512 MB at most** (it must pass the DIMM test).
+
+| Game | Year | Notes |
+|---|---|---|
+| **Maximum Speed** | 2003 | Racing, wheel |
+| **Faster Than Speed** | 2004 | Racing, wheel (there is a version with a fix for leaving the service menu) |
+
+Default settings can be fixed with an SRAM made in Demul + `attach_sram` from DragonMinded's netboot repository.
+
+#### Own ports and conversions
+
+| Project | Status | Performance | Comment |
+|---|---|---|---|
+| **Cannonball** (OutRun, rewritten engine) | ✅ Works | 60 fps | OutRun ROMs only (not for Turbo OutRun or Super Hang-On) |
+| **MAME4ALL Hang-On** | ⚠️ Slow on the board | Board: 47/16; Flycast: 60 / 41–55 | Controls OK; hang in stage 1 |
+| **MAME4ALL Konami GT** | ⚠️ Slow on the board | Board: 46/13; Flycast: 60 | Controls OK; bad sound; hang |
+| **Daytona USA recomp** (branch `naomi`) | 🟠 Parked | ~27 fps (13 in a race) | CPU-bound (i960 ≈19 ms, TGP ≈7 ms per frame); replaced by the native port |
+| **Native Daytona USA** (branch `naomi-native`) | ✅ Works | 60 fps on the board (measured through the NetDIMM) | The game rewritten in C (dfchil/alphanu1), identical to the original; assets from the NetDIMM, JVS, SRAM |
+| **Daytona USA 2001** (DC → NAOMI) | ✅ Works on the board | — | dc2naomi `daytona5`: the cabinet's controls and the VMU saved in a file (checked on the board) |
+| **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | ✅ Works on the board | — | Whole disc (`ysgw7`) and **one image per game** (OutRun, Hang-On, Power Drift, After Burner II, Space Harrier), all tested on the board. Power Drift: music crackling fixed. After Burner II: auto-fire, accelerator = throttle, brake = missile and the arcade's lamps on the START button. Space Harrier: rapid fire on the accelerator |
+| **Dreamcast racing games in batches** (DC → NAOMI) | 🧪 Uploaded, untested on the board | — | Test Drive 6, TD Le Mans, Wacky Races, Jeremy McGrath Supercross 2000, Star Wars Racer, Demolition Racer, TNN Hardcore Heat, Tokyo Xtreme Racer 2, Metropolis Street Racer, SF Rush 2049: the cabinet's controls and an unlocked VMU; those that did not fit in 512 MB with re-encoded videos or mono audio |
+| **OutRun 2006 Coast 2 Coast**, ArkRetro's demo (DC homebrew → NAOMI) | 🧪 Uploaded, untested on the board | — | v37 (2026-11-12): reaches the title and the demo in Flycast; fits in 512 MB with 4 of its 28 long songs (the others play as one of those four) |
+| **Super Sprint** (MAME4ALL) | ✅ Works on the board | 60 fps | T11 statically recompiled; wheel as a spinning wheel |
+| **OutRunners** (native port of cheviman/outrunners-port) | 🧪 In progress | 60 fps on the board (picture) | Picture through the PowerVR2 tested on the board; shadows, fades and sound on the AICA done and untested. [study](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md) |
+| **Virtua Tennis** (DC → NAOMI) | ✅ Boots on the board | — | First Dreamcast game that booted on the real board (2026-11-08); controls missing |
+| **Ikaruga** (DC → NAOMI) | ✅ Finished | — | Standard cabinet (sticks, 6 buttons); with the VMU in a file and an unlocked save (tested on the board) |
+| **Crazy Taxi 2** (DC → NAOMI) | ✅ Finished | — | `ct2h7`: wheel, pedals, gears with the shifter, jump with a double tap forward |
+| **Namco Museum** (DC → NAOMI) | ✅ Finished | — | `nmus7`: Pole Position with the wheel, VMU in a file (checked on the board) |
+| **F355, 18 Wheeler** (DC → NAOMI) | ✅ Work on the board | — | With the VMU in a file and an unlocked save; finished |
+| **Sega Rally 2** (DC, Windows CE → NAOMI) | ✅ Works on the board | — | With the VMU in a file; without the race music (CDDA); hidden 30 FPS mode on by default (tested on the board) |
+
+#### Dreamcast compilations (with dc2naomi)
+
+| Compilation | Car/bike games |
+|---|---|
+| **Yu Suzuki Game Works Vol. 1** | Hang-On, OutRun, Power Drift (+ Space Harrier, After Burner II): ✅ **work on the board** |
+| **Namco Museum** | Pole Position: ✅ **works on the board** |
+| **Midway's Greatest Arcade Hits Vol. 1** | Spy Hunter (DC version) |
+| **Midway's Greatest Arcade Hits Vol. 2** | Spy Hunter, 720° |
+| Atari Anniversary Edition | No car games |
+
+They are loaded with [dc2naomi](https://github.com/0skarzer0/dc2naomi), which has worked on the board since 2026-11-10
+(Yu Suzuki Game Works and Namco Museum included; how it got there, in its HANDOFF and in [historial.md](historial.md)).
+The Midway ones are still to be tested. What SEGA changed between the Dreamcast and the NAOMI Crazy Taxi:
+[crazy-taxi-dreamcast-vs-naomi.md](crazy-taxi-dreamcast-vs-naomi.md).
+
+#### Control patches
+
+Some native games expect the shifter or the buttons on different pins than the Crazy Taxi cabinet. Instead of
+rewiring, the game's code is patched. Everything is in the [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches)
+repository: a table per game, the procedure and the tools (`apply_patch.py`, an SH-4 disassembler and interpreter).
