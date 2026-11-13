@@ -51,7 +51,7 @@ port propio, `dc-` juego de Dreamcast convertido con dc2naomi (`_dc2naomict` = m
 | `dc-daytona5_dc2naomi` | Daytona USA 2001 | ✅ |
 | `dc-f355b_dc2naomi` | F355 Challenge | ✅ |
 | `dc-18wheeler2_dc2naomi` | 18 Wheeler: American Pro Trucker | ✅ |
-| `dc-sega_rally2_dc2naomi` | Sega Rally 2 (Windows CE; sin la música de carrera, que es audio de CD) | ✅ |
+| `dc-sega_rally2_dc2naomi` | Sega Rally 2 (Windows CE; 30 FPS de serie; sin la música de carrera, que es audio de CD) | ✅ |
 | `dc-ysgw7_dc2naomi` | Yu Suzuki Game Works Vol. 1, disco entero | ✅ |
 | `dc-outrun_dc2naomict` | OutRun (de Yu Suzuki GW) | ✅ |
 | `dc-hangon_dc2naomict` | Hang-On (de Yu Suzuki GW) | ✅ |

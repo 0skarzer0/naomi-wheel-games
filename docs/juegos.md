@@ -74,7 +74,7 @@ de netboot de DragonMinded.
 | **Crazy Taxi 2** (DC → NAOMI) | ✅ Terminado | — | `ct2h7`: volante, pedales, marchas con la palanca, salto con doble toque adelante |
 | **Namco Museum** (DC → NAOMI) | ✅ Terminado | — | `nmus7`: Pole Position con volante, VMU en fichero (comprobado en placa) |
 | **F355, 18 Wheeler** (DC → NAOMI) | ✅ Funcionan en placa | — | Con VMU en fichero y partida desbloqueada; terminados |
-| **Sega Rally 2** (DC, Windows CE → NAOMI) | ✅ Funciona en placa | — | Con VMU en fichero; sin la música de las carreras (CDDA); modo oculto de 30 FPS activado de serie (pendiente de probar en placa) |
+| **Sega Rally 2** (DC, Windows CE → NAOMI) | ✅ Funciona en placa | — | Con VMU en fichero; sin la música de las carreras (CDDA); modo oculto de 30 FPS activado de serie (probado en placa) |
 
 ## Recopilatorios de Dreamcast (con dc2naomi)
 
