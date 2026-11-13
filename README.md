@@ -19,9 +19,11 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 | [daytona-arcade-recomp](https://github.com/0skarzer0/daytona-arcade-recomp/tree/naomi) (rama `naomi`) | Recompilación de Daytona USA (Model 2) para NAOMI | [platform/dreamcast/HANDOFF.md](https://github.com/0skarzer0/daytona-arcade-recomp/blob/naomi/platform/dreamcast/HANDOFF.md) |
 | [daytona-arcade-recomp](https://github.com/0skarzer0/daytona-arcade-recomp/tree/naomi-native) (rama `naomi-native`) | **Port nativo** de Daytona USA (reescrito en C para SH-4, PR #58 del original) para NAOMI | [platform/dreamcast-native/naomi/HANDOFF.md](https://github.com/0skarzer0/daytona-arcade-recomp/blob/naomi-native/platform/dreamcast-native/naomi/HANDOFF.md) |
 | [dc2naomi](https://github.com/0skarzer0/dc2naomi) | Cargador de juegos de Dreamcast en NAOMI (experimental) | [HANDOFF.md](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md) |
-| [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches) | Parches de controles (IPS) para juegos NAOMI / NAOMI 2 / Atomiswave en el mueble Crazy Taxi | [HANDOFF.md](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md) |
+| [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches) | Parches de controles (IPS) para juegos NAOMI / NAOMI 2 / Atomiswave en el mueble Crazy Taxi, y lector de tarjetas virtual (Initial D) | [HANDOFF.md](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md) |
+| [model1-naomi](https://github.com/0skarzer0/model1-naomi) | Virtua Racing (Sega Model 1) en NAOMI: estudio de viabilidad | [HANDOFF.md](https://github.com/0skarzer0/model1-naomi/blob/main/HANDOFF.md) |
 
 **Hardware del mueble, valores JVS de volante y pedales y trampas del hardware real:** [docs/hardware.md](docs/hardware.md).
+**Qué hay cargado hoy en la Raspberry del mueble y qué está probado en la placa:** [docs/pi60-juegos.md](docs/pi60-juegos.md).
 
 ### Cómo retomar el trabajo en un chat nuevo (personas o IAs)
 
@@ -30,7 +32,26 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
    cómo compilar y siguientes pasos.
 3. Al terminar la sesión, actualiza ese `HANDOFF.md` y, si cambia el estado de algún juego, este README.
 
-### Pendientes generales (2026-11-05)
+### Estado a 2026-11-13
+
+- **dc2naomi (juegos de Dreamcast en la NAOMI):** funcionan en el mueble, probados en placa, **Crazy Taxi 2, Namco
+  Museum (Pole Position), Daytona USA 2001, F355 Challenge, 18 Wheeler, Sega Rally 2 (Windows CE) y los cinco juegos de
+  Yu Suzuki Game Works en imágenes separadas** (OutRun, Hang-On, Power Drift, After Burner II, Space Harrier), todos
+  con su VMU guardada en un fichero de la Raspberry. Arreglos de esta semana, todos medidos en placa: el petardeo de la
+  música de Power Drift (su mezclador se quedaba parado una vuelta del anillo de sonido cuando un tic llegaba tarde),
+  mandos propios de After Burner II (gases analógicos en el gatillo L, disparo automático) con **las luces del arcade
+  en el botón START del mueble**, disparo rápido en Space Harrier, y la RAM del juego puesta a cero antes de arrancar.
+  Convertidos y subidos, **pendientes de probar en placa:** Test Drive 6, Test Drive Le Mans, Wacky Races, Jeremy
+  McGrath Supercross 2000, Star Wars Episode I Racer, Demolition Racer, TNN Hardcore Heat, Tokyo Xtreme Racer 2,
+  Metropolis Street Racer (audio a mono para que quepa), San Francisco Rush 2049 (dos versiones) y la demo de
+  **OutRun 2006 Coast 2 Coast de ArkRetro** (v37). Lista completa: [docs/pi60-juegos.md](docs/pi60-juegos.md).
+- **MAME4ALL:** **Super Sprint a 60 fps en la placa** (CPU T11 recompilada estáticamente). Hang-On y Konami GT siguen
+  lentos en placa.
+- **naomi-ct-patches:** Jambo! Safari probado en placa; 18 Wheeler e Initial D con parche verificado en intérprete, y un
+  **lector de tarjetas virtual** para Initial D (imagen `initiald_exp_reva_ct` en la Raspberry).
+- **model1-naomi:** midiendo si el SH-4 puede emular el V60 de Virtua Racing; nada jugable todavía.
+
+### Pendientes generales (2026-11-05, histórico)
 
 - MAME4ALL en placa real: Hang-On 47/16 fps y Konami GT 46/13 fps (en Flycast iban a 60), sonido malo y cuelgues (posiblemente con el contador de FPS activo); controles perfectos. Diagnosticar (ver HANDOFF de mame4all-naomi).
 - Probar el nuevo control de Cannonball (START al soltar, START + R = vista).
@@ -131,7 +152,10 @@ de netboot de DragonMinded.
 | **Daytona USA recomp** (rama `naomi`) | 🟠 Arranca | ~27 fps | Limitado por CPU (i960 ≈19 ms, TGP ≈7 ms por frame); sustituido por el port nativo |
 | **Daytona USA nativo** (rama `naomi-native`) | ✅ Funciona | 60 fps en placa (medidos por NetDIMM) | El juego reescrito en C (dfchil/alphanu1), idéntico al original; assets desde la NetDIMM, JVS, SRAM |
 | **Daytona USA 2001** (DC → NAOMI) | ✅ Funciona en placa | — | dc2naomi `daytona5`: mandos del mueble y VMU guardada en fichero (comprobado en placa) |
-| **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | ✅ Funciona en placa | — | Los 5 juegos; modo avión para After Burner / Space Harrier. Power Drift: sonido petardea y salir con B da negro |
+| **Yu Suzuki Game Works Vol. 1** (DC → NAOMI) | ✅ Funciona en placa | — | Disco entero (`ysgw7`) y **una imagen por juego** (OutRun, Hang-On, Power Drift, After Burner II, Space Harrier), todas probadas en placa. Power Drift: petardeo de la música resuelto. After Burner II: disparo automático, acelerador = gases, freno = misil y luces del arcade en el botón START. Space Harrier: disparo rápido en el acelerador |
+| **Coches de Dreamcast por lotes** (DC → NAOMI) | 🧪 Subidos, sin probar en placa | — | Test Drive 6, TD Le Mans, Wacky Races, Jeremy McGrath Supercross 2000, Star Wars Racer, Demolition Racer, TNN Hardcore Heat, Tokyo Xtreme Racer 2, Metropolis Street Racer, SF Rush 2049: mandos del mueble y VMU desbloqueada; los que no cabían en 512 MB, con vídeos recodificados o audio a mono |
+| **OutRun 2006 Coast 2 Coast**, demo de ArkRetro (homebrew de DC → NAOMI) | 🧪 Subida, sin probar en placa | — | v37 (2026-11-12): llega al título y a la demo en Flycast; cabe en 512 MB con 4 de sus 28 canciones largas (las demás suenan como una de esas cuatro) |
+| **Super Sprint** (MAME4ALL) | ✅ Funciona en placa | 60 fps | T11 recompilado estáticamente; volante como volante giratorio |
 | **Virtua Tennis** (DC → NAOMI) | ✅ Arranca en placa | — | Primer juego de Dreamcast que arrancó en la placa real (2026-11-08); faltan los mandos |
 | **Ikaruga** (DC → NAOMI) | ✅ Terminado | — | Mueble estándar (palancas, 6 botones); con VMU en fichero y partida desbloqueada (probado en placa) |
 | **Crazy Taxi 2** (DC → NAOMI) | ✅ Terminado | — | `ct2h7`: volante, pedales, marchas con la palanca, salto con doble toque adelante |
@@ -239,8 +263,8 @@ casi el mismo (SH-4 + PowerVR2 + AICA). Lo que cambia es el arranque (cabecera N
 
 | Recopilatorio | Juegos de coches/motos |
 |---|---|
-| **Yu Suzuki Game Works Vol. 1** | Hang-On, OutRun, Power Drift (+ Space Harrier, After Burner II) |
-| **Namco Museum** | Pole Position |
+| **Yu Suzuki Game Works Vol. 1** | Hang-On, OutRun, Power Drift (+ Space Harrier, After Burner II): ✅ **funcionan en placa** |
+| **Namco Museum** | Pole Position: ✅ **funciona en placa** |
 | **Midway's Greatest Arcade Hits Vol. 1** | Spy Hunter (versión DC) |
 | **Midway's Greatest Arcade Hits Vol. 2** | Spy Hunter, 720° |
 | Atari Anniversary Edition | Sin juegos de coches |
@@ -322,6 +346,11 @@ directa o como inspiración o ayuda indirecta. Si falta alguien, abrid una issue
   ([dreamcast-cannonball](https://github.com/0skarzer0/dreamcast-cannonball)).
 - **El equipo de MAME y los autores de MAME4ALL, mame2000, mame2003 y FBA**, base del port de arcades clásicos.
 - **Flycast** y sus colaboradores, el emulador con el que se prueba antes de subirlo a la placa.
+- **[ArkRetro](https://github.com/ArkRetro)**, autor de la demo de OutRun 2006 Coast 2 Coast para Dreamcast que se juega en el
+  mueble con dc2naomi.
+- **[bucanero](https://github.com/bucanero)** ([dreamcast-saves](https://github.com/bucanero/dreamcast-saves)): las partidas
+  desbloqueadas que llevan en su VMU los juegos de Dreamcast del mueble. El resto de lo que usa dc2naomi está en sus
+  [agradecimientos](https://github.com/0skarzer0/dc2naomi#agradecimientos).
 - **gyrovorbis** ([SH4ZAM](https://github.com/gyrovorbis/sh4zam)) y **la comunidad de vgmrips**, cuyo pack de música de
   Daytona USA (Sega Model 2) es lo que suena en el port.
 - **Los autores de los proyectos de la sección 6** que sirven de referencia o futura base: cheviman (OutRunners decomp),
