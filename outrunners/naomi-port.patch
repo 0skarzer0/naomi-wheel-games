@@ -1,7 +1,7 @@
 From 046476afbf82e3b10901619456ed1847c0a9dae5 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 04:31:49 +0100
-Subject: [PATCH 1/4] NAOMI port, first stage: boot, JVS controls, live figures
+Subject: [PATCH 1/5] NAOMI port, first stage: boot, JVS controls, live figures
 
 ports/naomi: the game, its board and its sound program on a NAOMI's SH-4
 (KallistiOS, KOS_SUBARCH=naomi), the Crazy Taxi upright's wheel, pedals and
@@ -1722,7 +1722,7 @@ index 872e227..76aa7fc 100644
 From 52320d4a428a9457a07d746eee2c7a0e48ee89ae Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 04:44:05 +0100
-Subject: [PATCH 2/4] NAOMI port: no pthreads (workers_none.c); builds and
+Subject: [PATCH 2/5] NAOMI port: no pthreads (workers_none.c); builds and
  links with KOS for KOS_SUBARCH=naomi
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -1799,7 +1799,7 @@ index 0000000..7b61d97
 From 3d5d3349ae774a770c1b47d6550b508b42237d79 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 10:12:23 +0100
-Subject: [PATCH 3/4] NAOMI port runs on the board: game thread with the tasks'
+Subject: [PATCH 3/5] NAOMI port runs on the board: game thread with the tasks'
  stacks, faster sound board
 
 Found on the NAOMI 2 through the NetDIMM: KallistiOS stops a thread whose
@@ -2583,7 +2583,7 @@ index 76aa7fc..53ee148 100644
 From b397cb0c36115227ac32196a0657a98e71d8ab9e Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 14:17:46 +0100
-Subject: [PATCH 4/4] NAOMI stage 2: the frame on the PowerVR2 (scene of
+Subject: [PATCH 4/5] NAOMI stage 2: the frame on the PowerVR2 (scene of
  textured quads)
 
 runtime/src/video_scene.c (ORUNNERS_VIDEO_SCENE, included by video.c): the
@@ -5274,6 +5274,76 @@ index 0000000..a9c9433
 +	*height = soft.height[image];
 +	return soft.texels[image];
 +}
+-- 
+2.43.0
+
+
+From f0efbfa88139a7ff648d7b03ed1cb5798d6fee77 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 14:26:40 +0100
+Subject: [PATCH 5/5] NAOMI: START doubles as the coin button (press = coin,
+ release = START)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016VRYRPP2crYKhAiGSakTbz
+---
+ ports/naomi/README.md |  2 +-
+ ports/naomi/main.c    | 15 ++++++++++++++-
+ 2 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/ports/naomi/README.md b/ports/naomi/README.md
+index 2b8ec42..465f25d 100644
+--- a/ports/naomi/README.md
++++ b/ports/naomi/README.md
+@@ -71,7 +71,7 @@ staged name (give each image a new name, check its md5).
+ ## On the board
+ 
+ The controls (values of the Crazy Taxi upright, widening by themselves): wheel analog 0, gas 1, brake 2; the
+-two-position shifter forward = SHIFT UP (HIGH), back = SHIFT DOWN (LOW); START; coins by the meters' difference;
++two-position shifter forward = SHIFT UP (HIGH), back = SHIFT DOWN (LOW); START, which is also the coin button (pressing it inserts a coin, letting it go presses START: one tap starts a race); the coin slots too, by the meters' difference;
+ SERVICE and TEST as the board's.
+ 
+ Live figures, on the Raspberry of the cabinet (DragonMinded's netdimm.py), with the address `build_naomi.sh`
+diff --git a/ports/naomi/main.c b/ports/naomi/main.c
+index 0b22016..988d5d2 100644
+--- a/ports/naomi/main.c
++++ b/ports/naomi/main.c
+@@ -63,6 +63,10 @@ static struct
+ static int coin_counts_known;
+ static uint16_t coin_counts[MIE_JVS_COIN_SLOTS];
+ static int coin_frames;
++/* START doubles as the coin button (the cabinet has no free coin button at hand): pressing it inserts a coin,
++   letting it go presses the board's START for a few frames. One tap from the attract mode starts a race */
++static bool start_held;
++static int start_frames;
+ 
+ static int raw_analog(uint16_t raw)
+ {
+@@ -125,7 +129,11 @@ static void on_controls_update(void)
+ 		brake = pedal(raw_analog(jvs->brake), &calibration.brake_min, &calibration.brake_max);
+ 		shift_up = jvs->p1.up;
+ 		shift_down = jvs->p1.down;
+-		start = jvs->p1.start;
++		if (jvs->p1.start && !start_held)
++			coin_frames = 4;
++		if (!jvs->p1.start && start_held)
++			start_frames = 6;
++		start_held = jvs->p1.start;
+ 		service = jvs->p1.service || jvs->panel.psw.service;
+ 		test = jvs->system.test || jvs->panel.psw.test;
+ 		/* the coins by the meters' difference: the driver's pulse arrives already cleared (docs/hardware.md) */
+@@ -159,6 +167,11 @@ static void on_controls_update(void)
+ 		coin = true;
+ 		coin_frames--;
+ 	}
++	if (start_frames > 0 && !coin)
++	{
++		start = true;
++		start_frames--;
++	}
+ 	/* the 315-5296s' ports are active low */
+ 	input->port_a[0] = (uint8_t)(0xff & ~(shift_up ? 0x01 : 0) & ~(shift_down ? 0x02 : 0));
+ 	input->port_b[0] = 0xff;
 -- 
 2.43.0
 

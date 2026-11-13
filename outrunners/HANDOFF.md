@@ -75,6 +75,9 @@ Arreglos de esta fase que conviene recordar:
 - **`memcmp` de newlib es byte a byte** en SH-4: `same()` compara por palabras (de 9 a 4 ms la escena).
 - Quads ordenados por textura y enviados con *direct rendering*: el envío de ~500 quads, de 3,5 a 1,2 ms.
 
+Controles: volante, pedales, palanca (adelante HIGH, atrás LOW) y **START hace también de moneda** (al pulsar
+mete una moneda, al soltar pulsa START: un toque desde el attract empieza la partida).
+
 Bloque en vivo de la imagen actual: `0x8c0c5548` (cambia con cada compilación: `sh-elf-nm`).
 
 ## Fase 2 — render PowerVR2
