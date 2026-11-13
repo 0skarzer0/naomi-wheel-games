@@ -82,8 +82,8 @@ Reproducir: `python3 outrunners/analyze_census.py census.txt 1700`.
 
 ## 3. Plan del port
 
-Repositorio previsto: un fork de cheviman/outrunners-port en la cuenta 0skarzer0 con rama `naomi`, igual que
-dreamcast-cannonball (pendiente de crear; mientras, `git am outrunners/naomi-port.patch` sobre el commit `12af5afe`). Las piezas de NAOMI se reutilizan de Daytona nativo (rama `naomi-native`): `naomi_input.c`
+Repositorio: [0skarzer0/outrunners-port, rama `naomi`](https://github.com/0skarzer0/outrunners-port/tree/naomi), fork de cheviman/outrunners-port, igual que
+dreamcast-cannonball. Las piezas de NAOMI se reutilizan de Daytona nativo (rama `naomi-native`): `naomi_input.c`
 (JVS/MIE), `naomi_dimmfs.c` (ficheros en el DIMM), `naomi_dimmcomms.c` + `live.py` (*peeks* desde la Pi para medir
 en placa), `naomi_log.c`, `naomi_save.c` (EEPROM) y `naomi_pack.py` (imagen `.bin.gz`).
 
@@ -95,7 +95,7 @@ en placa), `naomi_log.c`, `naomi_save.c` (EEPROM) y `naomi_pack.py` (imagen `.bi
   `shift_down1`. Monedero por diferencia de contadores; START con luz.
 - Medir por la NetDIMM (`live.py`): ms por fotograma de la lógica y del Z80. **Objetivo: < 3 ms.**
 
-Hecho (en `ports/naomi/` del parche):
+Hecho (en `ports/naomi/` del fork, rama `naomi`):
 - `main.c`: bucle con KOS, JVS (volante, pedales, palanca → SHIFT UP/DOWN, START, monedas por diferencia de
   contadores, SERVICE/TEST), `video.c` cada `draw_every` fotogramas (4 por defecto, se cambia en vivo) copiado a un
   framebuffer de 640×480 RGB565, y tiempos de juego, sonido y vídeo por segundo en el bloque `orunners_naomi_live`.
@@ -109,7 +109,7 @@ Hecho (en `ports/naomi/` del parche):
 
 **En el mueble (2026-11-13):** `h-outrunners_naomi.bin.gz` en `/boot/roms/` de la Pi .60, con su fila
 "OutRunners (prueba)" en `romsinfo.csv` (copia previa: `romsinfo.csv.bak-2026-11-13-outrunners`). `live.py`, `watch.py`
-y `profile.py` del parche, copiados en `/sbin/piforce/` como `outrunners_live.py`, `or_watch.py` y `or_profile.py`.
+y `profile.py` del fork, copiados en `/sbin/piforce/` como `outrunners_live.py`, `or_watch.py` y `or_profile.py`.
 Se envía con `dc2naomi_send.py 10.0.0.4 /boot/roms/h-outrunners_naomi.bin.gz`.
 
 Medido en la placa (attract, un fotograma dibujado de cada 60):

@@ -1,13 +1,13 @@
 # OutRunners en NAOMI — traspaso para otra sesión
 
 Última actualización: 2026-11-13. Estudio y medidas: [../docs/outrunners.md](../docs/outrunners.md). Detalle técnico
-del port: `ports/naomi/README.md` dentro del parche.
+del port: `ports/naomi/README.md` del fork ([0skarzer0/outrunners-port, rama `naomi`](https://github.com/0skarzer0/outrunners-port/tree/naomi)).
 
 ## Dónde está cada cosa
 
 | Qué | Dónde |
 |---|---|
-| Código del port | [`naomi-port.patch`](naomi-port.patch): `git am` sobre [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port) `12af5afe` (con `git submodule update --init --depth 1`). Todavía no hay fork en la cuenta 0skarzer0. Si se crea `0skarzer0/outrunners-port`, subir los commits del parche como rama `naomi` |
+| Código del port | [0skarzer0/outrunners-port, rama `naomi`](https://github.com/0skarzer0/outrunners-port/tree/naomi) (fork de [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port): los commits del port sobre `12af5afe`; `git submodule update --init --depth 1`). El port, en `ports/naomi/` (su README) |
 | Toolchain | [`build_toolchain.sh`](build_toolchain.sh): sh-elf GCC 15.2.0 + KOS `368a2eb9` en `/opt/toolchains/dc/kos` (Dreamcast) y `/opt/toolchains/dc/kos-naomi` (`KOS_SUBARCH=naomi`, con `naomibintool`). ~35 min con 2 núcleos |
 | Estudio de vídeo en PC | `census.patch`, `race_arcade.txt`, `analyze_census.py` ([README.md](README.md)) |
 | Herramientas de la Pi | [`pi/`](pi/): `pi_env.sh`, `dimm_wait.sh`, `send_and_log.sh`, `install_pi_tools.sh`, `or_info.py`; más `live.py`, `watch.py` y `profile.py` de `ports/naomi/` |
@@ -17,9 +17,8 @@ del port: `ports/naomi/README.md` dentro del parche.
 
 ```sh
 bash naomi-wheel-games/outrunners/build_toolchain.sh          # una vez, ~35 min
-git clone https://github.com/cheviman/outrunners-port && cd outrunners-port
-git checkout 12af5afe && git submodule update --init --depth 1
-git am ../naomi-wheel-games/outrunners/naomi-port.patch
+git clone -b naomi https://github.com/0skarzer0/outrunners-port && cd outrunners-port
+git submodule update --init --depth 1
 ports/naomi/build_naomi.sh /ruta/orunners.zip build/naomi     # imagen: build/naomi/orunners_naomi.bin.gz
 ```
 

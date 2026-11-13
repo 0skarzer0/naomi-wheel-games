@@ -1,6 +1,6 @@
 #!/bin/bash
 # install_pi_tools.sh: copy the Pi-side tools to /sbin/piforce (outrunners_live.py, or_watch.py, or_profile.py,
-# or_info.py). live.py, watch.py and profile.py are ports/naomi/'s of the port (naomi-port.patch): pass their folder.
+# or_info.py). live.py, watch.py and profile.py are ports/naomi/'s of the port (0skarzer0/outrunners-port, branch naomi): pass their folder.
 . "$(dirname "$0")/pi_env.sh"
 SRC=${1:?usage: install_pi_tools.sh PATH/TO/ports/naomi}
 pi_scp "$SRC/live.py" "$PI:/sbin/piforce/outrunners_live.py"

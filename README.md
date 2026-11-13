@@ -26,7 +26,7 @@ tool builds images from the user's own dumps. The documents are in Spanish; the 
 | [dc2naomi](https://github.com/0skarzer0/dc2naomi) | Cargador de juegos de Dreamcast en NAOMI (experimental) | [HANDOFF.md](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md) |
 | [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches) | Parches de controles (IPS) para juegos NAOMI / NAOMI 2 / Atomiswave en el mueble Crazy Taxi, y lector de tarjetas virtual (Initial D) | [HANDOFF.md](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md) |
 | [model1-naomi](https://github.com/0skarzer0/model1-naomi) | Virtua Racing (Sega Model 1) en NAOMI: estudio de viabilidad | [HANDOFF.md](https://github.com/0skarzer0/model1-naomi/blob/main/HANDOFF.md) |
-| Este repositorio, [`outrunners/`](outrunners/) | **OutRunners** para NAOMI: parche sobre [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port), herramientas y estudio | [outrunners/HANDOFF.md](outrunners/HANDOFF.md) |
+| [outrunners-port](https://github.com/0skarzer0/outrunners-port/tree/naomi) (rama `naomi`) | **OutRunners** para NAOMI: fork de [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port); el port en `ports/naomi/` | [outrunners/HANDOFF.md](outrunners/HANDOFF.md) (aquí: estudio, herramientas de la Pi, toolchain) |
 
 
 ### Cómo retomar el trabajo en un chat nuevo (personas o IAs)
@@ -83,7 +83,7 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
 naomi-wheel-games/
 ├── README.md        ← este documento
 ├── docs/            ← la documentación de arriba
-└── outrunners/      ← el port de OutRunners: parche, toolchain, herramientas de la Pi, HANDOFF
+└── outrunners/      ← OutRunners: HANDOFF, toolchain, herramientas de la Pi y del estudio (el código, en su fork)
 ```
 
 El código de los demás proyectos está en sus repositorios (tabla de arriba).
