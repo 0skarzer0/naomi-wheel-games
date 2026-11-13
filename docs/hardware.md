@@ -47,3 +47,11 @@ Pendiente: decidir un estándar común.
 - La DMA del PVR se cuelga en NAOMI.
 - Los núcleos de CPU emulados (FAMEC, RAZE, Musashi, T11, 6502) van **2–5 veces más lentos** que en Flycast:
   medir siempre en la placa.
+
+## Consecuencias para los juegos
+
+- **Volante absoluto** → perfecto para juegos con volante/potenciómetro. Para spinner/dial (rotación
+  infinita) hay que convertir la posición del volante en velocidad de giro.
+- **Palanca de 2 posiciones con retorno** → se usa como cambio LOW/HIGH con enclavamiento por software
+  (adelante = HIGH, atrás = LOW). Juegos con H de 4/6 velocidades quedan peor.
+- **Solo un jugador** con controles de coche; un segundo jugador no tiene mandos.
