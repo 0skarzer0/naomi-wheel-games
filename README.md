@@ -27,6 +27,8 @@ tool builds images from the user's own dumps. The documents are in Spanish; the 
 | [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches) | Parches de controles (IPS) para juegos NAOMI / NAOMI 2 / Atomiswave en el mueble Crazy Taxi, y lector de tarjetas virtual (Initial D) | [HANDOFF.md](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md) |
 | [model1-naomi](https://github.com/0skarzer0/model1-naomi) | Virtua Racing (Sega Model 1) en NAOMI: estudio de viabilidad | [HANDOFF.md](https://github.com/0skarzer0/model1-naomi/blob/main/HANDOFF.md) |
 | [outrunners-port](https://github.com/0skarzer0/outrunners-port/tree/naomi) (rama `naomi`) | **OutRunners** para NAOMI: fork de [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port); el port en `ports/naomi/` | [ports/naomi/HANDOFF.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/HANDOFF.md) (y el estudio: [ports/naomi/docs/study.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md)) |
+| [naomi-pi-tools](https://github.com/0skarzer0/naomi-pi-tools) | Scripts de la Raspberry y del PC: enviar juegos, parar el VMU, timehack, `live.py`, añadir filas a `romsinfo.csv` | [HANDOFF](https://github.com/0skarzer0/naomi-pi-tools/blob/main/HANDOFF.md) |
+| [crazytaxi_cabinet_info](https://github.com/0skarzer0/crazytaxi_cabinet_info) | Solo documentación del mueble: JVS, valores de volante y pedales, trampas del hardware real | [HANDOFF](https://github.com/0skarzer0/crazytaxi_cabinet_info/blob/main/HANDOFF.md) |
 | [naomi-kit](https://github.com/0skarzer0/naomi-kit) | Librería común de los ports nativos a NAOMI: arranque, volante y monedas, ficheros de la NetDIMM, bloque «live», accesos desalineados y scripts de la Pi | [HANDOFF del kit](https://github.com/0skarzer0/naomi-kit/blob/main/HANDOFF.md) |
 
 
@@ -35,6 +37,8 @@ tool builds images from the user's own dumps. The documents are in Spanish; the 
 ```mermaid
 flowchart LR
     kit["naomi-kit<br/>arranque, controles, NetDIMM,<br/>live, scripts de la Pi"]
+    tools["naomi-pi-tools<br/>scripts Pi y PC"]
+    cab["crazytaxi_cabinet_info<br/>documentación del mueble"]
     kit --> day["Daytona USA nativo<br/>(daytona-arcade-recomp, naomi-native)"]
     kit --> orun["OutRunners<br/>(outrunners-port, naomi)"]
     kit -.-> next["próximos ports"]
@@ -100,7 +104,7 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
    cuelgan en el attract.
 3. **Estándar de controles común** para todos los juegos del mueble (moneda, START, vista, menú): hay una
    [propuesta](https://github.com/0skarzer0/naomi-kit/blob/main/docs/controls.md); hoy cada port lo
-   resuelve a su manera (OutRunners: START = moneda; MAME4ALL: freno + START = crédito; Cannonball: freno + START = menú).
+   resuelve a su manera (OutRunners: START = moneda; MAME4ALL: START pulsado = crédito, al soltar = START; Cannonball: freno + START = menú).
 4. **MAME4ALL:** Hang-On y Konami GT lentos en placa; añadir los drivers fáciles de [docs/juegos.md](docs/juegos.md)
    (Super Hang-On, Enduro Racer, Spy Hunter, Turbo, Arkanoid…).
 5. **Más allá:** un frontend común tipo libretro para NAOMI (mame2000, mame2003, fbalpha2012) para los juegos de

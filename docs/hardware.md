@@ -36,7 +36,7 @@ Notas:
 
 | Proyecto | Freno + START | Otras |
 |---|---|---|
-| mame4all-naomi | Meter un crédito | START 3 s = contador de FPS |
+| mame4all-naomi | — (START pulsado = crédito, al soltar = START) | START 3 s = contador de FPS |
 | Cannonball | Menú principal | START mantenido + palanca atrás = cambiar vista; START actúa al soltarlo |
 
 Pendiente: decidir un estándar común.

@@ -38,7 +38,7 @@ port propio, `dc-` juego de Dreamcast convertido con dc2naomi (`_dc2naomict` = m
 | `h-Daytona_USA_(MODEL2)` | Daytona USA, port nativo (mismo tamaño que `daytona_native_naomi`, otra compilación) | ✅ 60 fps |
 | `h-hangon_mame4all_naomi` | Hang-On (MAME4ALL) | ⚠️ lento en placa |
 | `h-konamigt_mame4all_naomi` | Konami GT (MAME4ALL) | ⚠️ lento en placa |
-| `h-ssprint_mame4all_naomi` (+ versión sin sonido) | Super Sprint (MAME4ALL) | ✅ 60 fps |
+| `h-ssprint_mame4all_naomi` | Super Sprint (MAME4ALL): pantalla completa con bilinear, volante analógico, sonido 11 kHz | ✅ 60 fps |
 | `h-jvstest` | Prueba de entradas JVS (calibración de volante y pedales) | ✅ |
 | `h-outrunners_naomi` | OutRunners, port nativo ([estudio de OutRunners](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md)): imagen PowerVR2 a ~60 fps; sonido por el AICA aún sin probar (en pruebas) | 🧪 |
 
