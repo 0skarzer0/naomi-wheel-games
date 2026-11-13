@@ -1,6 +1,6 @@
 # Herramientas del estudio de OutRunners
 
-Ver [../docs/outrunners.md](../docs/outrunners.md).
+Ver [../docs/outrunners.md](../docs/outrunners.md). **Para continuar el trabajo: [HANDOFF.md](HANDOFF.md).**
 
 | Fichero | Para qué |
 |---|---|
@@ -8,6 +8,7 @@ Ver [../docs/outrunners.md](../docs/outrunners.md).
 | `race_arcade.txt` | Guion de controles para `orunners_game_headless`: moneda, START, gas y volante; llega a la carrera hacia el fotograma 1700 |
 | `analyze_census.py` | Resume el censo |
 | `naomi-port.patch` | El port a NAOMI (fase 1) para `git am` sobre cheviman/outrunners-port `12af5afe`, hasta que exista el fork |
+| `pi/` | Envío a la placa y lectura de la consola por la Pi del mueble (`HANDOFF.md`) |
 | `build_toolchain.sh` | sh-elf + KOS (normal y NAOMI) sin acceso a los mirrors de GNU |
 
 Receta:

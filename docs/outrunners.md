@@ -4,7 +4,7 @@ Estado (2026-11-13, 10:15): **fase 1 funcionando en la placa** (NAOMI 2 del mueb
 la NetDIMM desde la Pi .60). La lógica del juego y el sonido van a **~57–60 fps** (juego ~8 ms y sonido ~2,9 ms por
 fotograma); el vídeo por software tarda **~360 ms por fotograma**, así que la imagen solo sirve de prueba y la fase 2
 (render PVR2) es lo que falta. Código: [`outrunners/naomi-port.patch`](../outrunners/naomi-port.patch) (hasta que
-exista el fork); detalle técnico en `ports/naomi/README.md` del parche.
+exista el fork); detalle técnico en `ports/naomi/README.md` del parche. **Para seguir el trabajo: [outrunners/HANDOFF.md](../outrunners/HANDOFF.md).**
 
 Base: [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port) (BSD-3-Clause, Sebastian Toyos), port
 nativo en C hecho sobre su descompilación [outrunners-decomp](https://github.com/cheviman/outrunners-decomp).
