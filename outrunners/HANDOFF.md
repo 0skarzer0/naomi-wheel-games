@@ -10,7 +10,7 @@ del port: `ports/naomi/README.md` del fork ([0skarzer0/outrunners-port, rama `na
 | Código del port | [0skarzer0/outrunners-port, rama `naomi`](https://github.com/0skarzer0/outrunners-port/tree/naomi) (fork de [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port): los commits del port sobre `12af5afe`; `git submodule update --init --depth 1`). El port, en `ports/naomi/` (su README) |
 | Toolchain | [`build_toolchain.sh`](build_toolchain.sh): sh-elf GCC 15.2.0 + KOS `368a2eb9` en `/opt/toolchains/dc/kos` (Dreamcast) y `/opt/toolchains/dc/kos-naomi` (`KOS_SUBARCH=naomi`, con `naomibintool`). ~35 min con 2 núcleos |
 | Estudio de vídeo en PC | `census.patch`, `race_arcade.txt`, `analyze_census.py` ([README.md](README.md)) |
-| Herramientas de la Pi | [`pi/`](pi/): `pi_env.sh`, `dimm_wait.sh`, `send_and_log.sh`, `install_pi_tools.sh`, `or_info.py`; más `live.py`, `watch.py` y `profile.py` de `ports/naomi/` |
+| Herramientas de la Pi | [`pi/`](pi/): `pi_env.sh`, `dimm_wait.sh`, `send_and_log.sh`, `install_pi_tools.sh`, `or_info.py`; más `live.py`, `watch.py`, `profile.py` y `drive.py` de [naomi-kit](https://github.com/0skarzer0/naomi-kit) (`tools/pi/`) |
 | ROM | `orunners.zip` (set de MAME) del usuario: **pedírselo**; nunca subir nada derivado de él |
 
 ## Cómo reconstruir el entorno desde cero (workspace de Claude)
@@ -131,3 +131,8 @@ tilemaps y recorte "outside" de la lista de sprites (no vistos en OutRunners).
 Herramientas en la Pi: `race.py` (de `ports/naomi/`, copiado como `/sbin/piforce/or_race.py`):
 `python3 or_race.py ADDR 100` echa moneda, pulsa START, acelera y gira; imprime fps y tiempos. Actualizar también
 `live.py` en la Pi (`install_pi_tools.sh`): ahora muestra `misaligned` y `aica writes`.
+
+
+## Aviso: port sobre naomi-kit (2026-11-13)
+
+El port ya usa naomi-kit (submódulo `ports/naomi/naomi-kit`): arranque, controles, ficheros de la NetDIMM, bloque live (magic `NKLV`, offsets nuevos) y herramientas de la Pi vienen del kit. `live.py`, `watch.py`, `profile.py` y `race.py` (ahora `drive.py`) ya no están en `ports/naomi/`; los `or_race.py`/`outrunners_live.py` antiguos de `/sbin/piforce` NO sirven con imágenes nuevas: copiar los del kit (`tools/pi/install.sh`). La Pi: pedir la contraseña al usuario. Nada de esto está probado en la placa todavía (rama `naomi` del fork, commit 9e3d282).
