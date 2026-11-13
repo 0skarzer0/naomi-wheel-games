@@ -72,7 +72,8 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
   tal cual (mezcla por píxel al estilo de MAME, ~21 M instrucciones x86 por fotograma) no cabe: hay que dibujar con
   la PowerVR2. OutRunners usa poco del chip: capas TEXT, NBG0 y NBG2, ~56 sprites por fotograma, sin sombras ni
   ventanas. El FM no toca notas, así que el sonido se reduce al MultiPCM, que pasará al AICA.
-  Estudio, mediciones y plan por fases: [docs/outrunners.md](docs/outrunners.md).
+  Estudio, mediciones y plan por fases: [docs/outrunners.md](docs/outrunners.md). **Fase 1 compilada** (arranque,
+  JVS y tiempos en vivo por la NetDIMM; vídeo provisional por software): imagen lista, **sin probar en placa**.
 
 ---
 

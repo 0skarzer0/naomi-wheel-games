@@ -1,0 +1,1797 @@
+From 046476afbf82e3b10901619456ed1847c0a9dae5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 04:31:49 +0100
+Subject: [PATCH 1/2] NAOMI port, first stage: boot, JVS controls, live figures
+
+ports/naomi: the game, its board and its sound program on a NAOMI's SH-4
+(KallistiOS, KOS_SUBARCH=naomi), the Crazy Taxi upright's wheel, pedals and
+two-position shifter through the JVS, video.c drawn every few frames into a
+framebuffer, and the time each part takes for the netbooter's Raspberry to
+peek at (live.py). naomi_assets.py makes the NAOMI's pack (tiles two pens to a
+byte, samples apart: 21.6 MB). The NetDIMM files, peeks and console ring come
+from the NAOMI build of Daytona USA's native port.
+
+runtime: tasks on the SH-4 (registers on the task's stack, as on aarch64;
+TASK_STACK_SIZE settable), ORUNNERS_PACKED_PENS for the packed tiles (same
+video hashes as the normal build over 3,501 frames).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016VRYRPP2crYKhAiGSakTbz
+---
+ ports/naomi/Makefile          |  49 +++++
+ ports/naomi/README.md         |  64 +++++++
+ ports/naomi/build_naomi.sh    |  35 ++++
+ ports/naomi/live.py           |  65 +++++++
+ ports/naomi/main.c            | 339 ++++++++++++++++++++++++++++++++++
+ ports/naomi/naomi.h           |  56 ++++++
+ ports/naomi/naomi_assets.py   | 103 +++++++++++
+ ports/naomi/naomi_dimmcomms.c | 110 +++++++++++
+ ports/naomi/naomi_dimmfs.c    | 316 +++++++++++++++++++++++++++++++
+ ports/naomi/naomi_dimmfs.h    |  38 ++++
+ ports/naomi/naomi_log.c       | 168 +++++++++++++++++
+ ports/naomi/naomi_pack.py     |  72 ++++++++
+ runtime/src/assets_media.c    |   7 +-
+ runtime/src/assets_pack.c     |   4 +
+ runtime/src/tasks.c           | 104 +++++++++++
+ runtime/src/video.c           |   4 +
+ 16 files changed, 1533 insertions(+), 1 deletion(-)
+ create mode 100644 ports/naomi/Makefile
+ create mode 100644 ports/naomi/README.md
+ create mode 100755 ports/naomi/build_naomi.sh
+ create mode 100644 ports/naomi/live.py
+ create mode 100644 ports/naomi/main.c
+ create mode 100644 ports/naomi/naomi.h
+ create mode 100755 ports/naomi/naomi_assets.py
+ create mode 100644 ports/naomi/naomi_dimmcomms.c
+ create mode 100644 ports/naomi/naomi_dimmfs.c
+ create mode 100644 ports/naomi/naomi_dimmfs.h
+ create mode 100644 ports/naomi/naomi_log.c
+ create mode 100755 ports/naomi/naomi_pack.py
+
+diff --git a/ports/naomi/Makefile b/ports/naomi/Makefile
+new file mode 100644
+index 0000000..5b542a8
+--- /dev/null
++++ b/ports/naomi/Makefile
+@@ -0,0 +1,49 @@
++# OutRunners on a SEGA NAOMI (ports/naomi/README.md). With KallistiOS built for KOS_SUBARCH=naomi:
++#
++#   source /opt/toolchains/dc/kos-naomi/environ.sh
++#   make -C ports/naomi
++#
++# Output: orunners_naomi.elf here. build_naomi.sh makes the netboot image from it and the player's assets.
++
++ROOT := ../..
++TARGET = orunners_naomi.elf
++
++RUNTIME = machine io sound ym3438 memory_census tasks video workers multipcm sound_chips sound_cpu \
++	game assets assets_media assets_midi assets_pack json png inflate
++GAME_C := $(shell find $(ROOT)/src -name '*.c')
++OBJS = main.o naomi_log.o naomi_dimmfs.o naomi_dimmcomms.o \
++	$(addprefix runtime/,$(addsuffix .o,$(RUNTIME))) \
++	$(patsubst $(ROOT)/src/%.c,game/%.o,$(GAME_C))
++
++# the game's C reads the work RAM through typed lvalues (game/support.h): no strict aliasing anywhere.
++# ORUNNERS_PACKED_PENS: the tiles two pens to a byte (naomi_assets.py). Two tasks of about 3.5 KB of stack each
++# on Linux: 128 KB each is plenty (runtime/src/tasks.c)
++OUR_CFLAGS = -O2 -fno-strict-aliasing -Wno-stringop-overflow -DORUNNERS_PACKED_PENS -DTASK_STACK_SIZE='(128u << 10)' \
++	-I$(ROOT)/runtime/include -I$(ROOT)/src -I.
++
++all: $(TARGET)
++
++include $(KOS_BASE)/Makefile.rules
++
++ifneq ($(KOS_SUBARCH),naomi)
++$(error KOS_SUBARCH is $(KOS_SUBARCH): source the NAOMI KallistiOS tree's environ.sh)
++endif
++
++%.o: %.c
++	kos-cc $(OUR_CFLAGS) -c $< -o $@
++
++runtime/%.o: $(ROOT)/runtime/src/%.c
++	@mkdir -p $(dir $@)
++	kos-cc $(OUR_CFLAGS) -c $< -o $@
++
++game/%.o: $(ROOT)/src/%.c
++	@mkdir -p $(dir $@)
++	kos-cc $(OUR_CFLAGS) -c $< -o $@
++
++$(TARGET): $(OBJS)
++	kos-cc -o $(TARGET) $(OBJS) -lm
++
++clean:
++	rm -rf $(TARGET) *.o runtime game
++
++.PHONY: all clean
+diff --git a/ports/naomi/README.md b/ports/naomi/README.md
+new file mode 100644
+index 0000000..986b532
+--- /dev/null
++++ b/ports/naomi/README.md
+@@ -0,0 +1,64 @@
++# OutRunners on a SEGA NAOMI / NAOMI 2 (NetDIMM netboot)
++
++Work in progress for a Crazy Taxi upright with a NAOMI 2 and a 512 MB NetDIMM loaded by a Raspberry Pi
++(WiPi Netbooter). The study behind it (what each part costs, what the game uses of the System 32 video chip):
++[docs/outrunners.md of 0skarzer0/naomi-wheel-games](https://github.com/0skarzer0/naomi-wheel-games/blob/main/docs/outrunners.md).
++
++## Stages
++
++1. **Boot and measure** (this directory today): the game's C, the board and the sound program on the SH-4; the
++   cabinet's controls through the JVS; `runtime/src/video.c` drawn every few frames into a framebuffer, only to
++   see something; the time each part takes, read live from the Raspberry (`live.py`). Not yet run on a board.
++2. **PowerVR2 renderer** in place of `video.c`: tilemap pages as textures, NBG0 as a scrolled quad, NBG2 a strip a
++   line (row scroll and row select), sprites as quads from a texture cache, priorities as depth, fades.
++3. **Sound on the AICA:** the MultiPCM's 4 MB of samples (`orunners.pcm`) in the AICA's RAM, its 28 voices on AICA
++   channels. The YM3438 only gives the sound program its timers: OutRunners plays no FM note.
++4. **A converter for Windows**: drop `orunners.zip`, get the `.bin.gz`.
++
++## Build
++
++```sh
++git submodule update --init --depth 1
++ports/naomi/build_naomi.sh /path/to/orunners.zip build/naomi
++```
++
++Needs the sh-elf toolchain and KallistiOS built for `KOS_SUBARCH=naomi` (`KOS_NAOMI`, default
++`/opt/toolchains/dc/kos-naomi`; recipe: `outrunners/build_toolchain.sh` of naomi-wheel-games), CMake, a C compiler
++and Python 3. Out: `build/naomi/orunners_naomi.bin.gz` for the netbooter. It is made from the player's ROM set:
++never share it.
++
++What it does: the computers' build takes the assets out of the ROM set and writes them as one pack;
++`naomi_assets.py` makes the NAOMI's pack from it (tiles two pens to a byte, `ORUNNERS_PACKED_PENS`, 21.6 MB, read
++into main RAM at boot; the samples apart); `make` builds the ELF; `naomibintool` and `naomi_pack.py` make the
++netboot image with the pack in the NetDIMM after the program (`/dimm`).
++
++Checked on a computer (2026-11-13): a build with `ORUNNERS_PACKED_PENS` on the NAOMI's pack draws the same frames as
++the normal build on the normal pack (video hashes of 3,501 frames of attract and race, identical). Every C file
++compiles with sh-elf-gcc 15.2.0 (`-m4-single -ml -O2`): 490 KB of code, 5.8 MB of static data.
++
++## On the board
++
++The controls (values of the Crazy Taxi upright, widening by themselves): wheel analog 0, gas 1, brake 2; the
++two-position shifter forward = SHIFT UP (HIGH), back = SHIFT DOWN (LOW); START; coins by the meters' difference;
++SERVICE and TEST as the board's.
++
++Live figures, on the Raspberry of the cabinet (DragonMinded's netdimm.py), with the address `build_naomi.sh`
++prints:
++
++```sh
++python3 live.py 10.0.0.4 0x8c...... fps 60     # game fps, frames drawn, us of the game, sound and video
++python3 live.py 10.0.0.4 0x8c...... draw 8     # a frame drawn every 8
++python3 live.py 10.0.0.4 0x8c...... log        # the console
++```
++
++A failure, or no game frame for 10 s, puts the console's last lines on the screen (with the main thread's pc and
++pr for `sh-elf-addr2line` on `orunners_naomi.elf`).
++
++## Credits
++
++The NetDIMM files, the peeks, the console ring and `naomi_pack.py` come from the NAOMI build of Daytona USA's
++native port ([0skarzer0/daytona-arcade-recomp](https://github.com/0skarzer0/daytona-arcade-recomp), branch
++`naomi-native`); the peek protocol and the cartridge port's reads follow DragonMinded's
++[libnaomi](https://github.com/DragonMinded/libnaomi) and [netboot](https://github.com/DragonMinded/netboot). Built
++on [KallistiOS](https://github.com/KallistiOS/KallistiOS). The game's C, its runtime and its tools are cheviman's
++(Sebastian Toyos). OutRunners is a trademark of SEGA; this project is not affiliated with or endorsed by SEGA.
+diff --git a/ports/naomi/build_naomi.sh b/ports/naomi/build_naomi.sh
+new file mode 100755
+index 0000000..3d68a8f
+--- /dev/null
++++ b/ports/naomi/build_naomi.sh
+@@ -0,0 +1,35 @@
++#!/bin/bash
++# The NAOMI netboot image of OutRunners from the player's ROM set (ports/naomi/README.md):
++#
++#   ports/naomi/build_naomi.sh orunners.zip [OUTDIR]
++#
++# Needs the sh-elf toolchain and KallistiOS built for KOS_SUBARCH=naomi (KOS_NAOMI, default
++# /opt/toolchains/dc/kos-naomi, with naomibintool), a computer's build of the game for its assets (cmake, a C
++# compiler, python3). Output: OUTDIR/orunners_naomi.bin.gz for the WiPi netbooter,
++# OUTDIR/orunners.pcm (the MultiPCM's samples, for a later stage). What it makes comes from the player's ROM set:
++# never share it.
++set -e
++ROM=$(realpath "${1:?usage: build_naomi.sh orunners.zip [OUTDIR]}")
++OUT=$(realpath -m "${2:-build/naomi}")
++HERE=$(cd "$(dirname "$0")" && pwd)
++REPO=$(cd "$HERE/../.." && pwd)
++KOS_NAOMI=${KOS_NAOMI:-/opt/toolchains/dc/kos-naomi}
++mkdir -p "$OUT/dimm"
++
++# 1. the game's assets from the ROM set, as the computers' first run takes them, in one pack
++cmake -S "$REPO" -B "$OUT/host" -DCMAKE_BUILD_TYPE=Release -DORUNNERS_ROM="$ROM" > "$OUT/host.log"
++make -C "$OUT/host" -j"$(nproc)" orunners_game_headless orunners_assets >> "$OUT/host.log"
++"$REPO/build/bin/orunners_game_headless" --frames 1 --hashes /dev/null --assets "$REPO/assets" \
++	--write-pack "$OUT/orunners.assets" > /dev/null
++# 2. the NAOMI's pack: tiles two pens to a byte, the samples apart
++python3 "$HERE/naomi_assets.py" "$OUT/orunners.assets" "$OUT/dimm/orunners_naomi.assets" "$OUT/orunners.pcm"
++# 3. the program
++(source "$KOS_NAOMI/environ.sh" && make -C "$HERE" -j"$(nproc)")
++# 4. the netboot image: the program in a NAOMI header, the pack after it in the NetDIMM (/dimm)
++"$KOS_NAOMI/utils/naomibintool/naomibintool" build "$OUT/orunners_naomi-prog.bin" -t "OUTRUNNERS" -d "HOMEBREW" \
++	-e "$HERE/orunners_naomi.elf"
++python3 "$HERE/naomi_pack.py" "$OUT/orunners_naomi-prog.bin" "$OUT/dimm" "$OUT/orunners_naomi.bin"
++gzip -9 -f "$OUT/orunners_naomi.bin"
++cp "$HERE/orunners_naomi.elf" "$OUT/"
++echo "Netboot image: $OUT/orunners_naomi.bin.gz"
++echo "Live figures: $(/opt/toolchains/dc/sh-elf/bin/sh-elf-nm "$OUT/orunners_naomi.elf" | grep -i 'orunners_naomi_live$')"
+diff --git a/ports/naomi/live.py b/ports/naomi/live.py
+new file mode 100644
+index 0000000..ab612a3
+--- /dev/null
++++ b/ports/naomi/live.py
+@@ -0,0 +1,65 @@
++#!/usr/bin/env python3
++"""live.py NETDIMM_IP ADDR [fps [SECONDS] | log | draw N]: OutRunners' live figures on the NAOMI through the NetDIMM.
++
++Runs ON the netbooter Raspberry (WiPi), with DragonMinded's netdimm.py in /sbin/piforce/dm_netboot, while the game
++runs (ports/naomi/naomi_dimmcomms.c answers the peeks). ADDR is the address of `orunners_naomi_live`: the console's
++line "NAOMI: NetDIMM peek/poke on; live figures at 0x8c......", or what build_naomi.sh prints.
++After live.py of Daytona USA's native port on the NAOMI (0skarzer0/daytona-arcade-recomp, branch naomi-native).
++
++  fps [N]   one line a second for N seconds (default 30): the game's frames, the frames drawn, and the time of
++            the game's C, of the sound board and of video.c (microseconds)
++  log       the console's ring
++  draw N    draw a frame every N (1-60): video.c's cost against the game's speed
++
++Example: python3 live.py 10.0.0.4 0x8c2a1b40 fps 60
++"""
++import struct
++import sys
++import time
++sys.path.append('/sbin/piforce/dm_netboot')
++from netdimm import NetDimm, PeekPokeTypeEnum as T
++
++FIELDS = ('magic version seconds game_frames drawn_frames game_us sound_us video_us worst_frame_us frames_total '
++          'dimm_requests log_lines log_count log_width log_next heap_left draw_every inputs').split()
++
++
++def main():
++    if len(sys.argv) < 3:
++        sys.exit(__doc__)
++    dimm, base = NetDimm(sys.argv[1]), int(sys.argv[2], 0)
++    what = sys.argv[3] if len(sys.argv) > 3 else 'fps'
++    off = lambda a: a & 0x01ffffff  # firmware 3.17: an offset into the 32 MB of RAM
++    peek = lambda a: dimm.peek(off(a), T.TYPE_LONG)
++    read = lambda: dict(zip(FIELDS, (peek(base + 4 * i) for i in range(len(FIELDS)))))
++    live = read()
++    if live['magic'] != 0x4e55524f:
++        sys.exit('no live block at 0x%08x (magic %08x): wrong address, or the game is not running' % (base, live['magic']))
++    if what == 'draw':
++        dimm.poke(off(base + 0x40), T.TYPE_LONG, int(sys.argv[4]))
++        print('a frame drawn every', int(sys.argv[4]))
++    elif what == 'log':
++        n, width, written = live['log_count'], live['log_width'], peek(live['log_next'])
++        for i in range(max(0, written - n), written + 1):
++            at = live['log_lines'] + (i % n) * width
++            raw = b''.join(struct.pack('<I', peek(at + 4 * k)) for k in range(width // 4))
++            line = raw.split(b'\0', 1)[0].decode('ascii', 'replace')
++            if line:
++                print(line)
++    else:
++        seconds = int(sys.argv[4]) if len(sys.argv) > 4 else 30
++        last = None
++        for _ in range(seconds * 4):
++            live = read()
++            if live['seconds'] != last:
++                last = live['seconds']
++                i = live['inputs']
++                print('%5ds  game %2d fps  drawn %2d  game %6d us  sound %6d us  video %7d us  worst %7d us  '
++                      'wheel %02x gas %02x brake %02x E %02x  heap %d KB' % (
++                          live['seconds'], live['game_frames'], live['drawn_frames'], live['game_us'],
++                          live['sound_us'], live['video_us'], live['worst_frame_us'], i & 255, i >> 8 & 255,
++                          i >> 16 & 255, i >> 24, live['heap_left'] // 1024), flush=True)
++            time.sleep(0.25)
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/ports/naomi/main.c b/ports/naomi/main.c
+new file mode 100644
+index 0000000..d7e5cbf
+--- /dev/null
++++ b/ports/naomi/main.c
+@@ -0,0 +1,339 @@
++/**
++ *    Name:        main.c
++ *    Description: OutRunners on a SEGA NAOMI / NAOMI 2 (KallistiOS, KOS_SUBARCH=naomi), first stage: the game, its
++ *                 board and its sound program on the SH-4, the cabinet's controls through the JVS, the computers'
++ *                 video (runtime/src/video.c) drawn every few frames, and the time each part takes, for the
++ *                 netbooter's Raspberry to read (naomi.h, live.py). See ports/naomi/README.md
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    What it is for: measuring on the board what docs/outrunners.md of 0skarzer0/naomi-wheel-games estimated from
++ *    a computer (the game's C and the Z80's well inside a frame, video.c about ten times over it), before the
++ *    PowerVR2 renderer replaces video.c.
++ *
++ *    The assets: ports/naomi/naomi_assets.py makes the NAOMI's pack from the player's (tiles two pens to a byte,
++ *    ORUNNERS_PACKED_PENS; the MultiPCM's samples apart), naomi_pack.py puts it after the program in the netboot
++ *    image, and it is read from the NetDIMM into main RAM here (about 22 MB). The samples stay out of RAM at this
++ *    stage: the MultiPCM plays silence (they go to the AICA's RAM in the third stage).
++ */
++#include <kos.h>
++#include <arch/timer.h>
++#include <dc/maple.h>
++#include <dc/maple/mie.h>
++#include <dc/video.h>
++
++#include "s32/machine.h"
++#include "s32/program.h"
++#include "s32/video.h"
++#include "sound/chips.h"
++#include "game/assets.h"
++
++#include "naomi.h"
++#include "naomi_dimmfs.h"
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++KOS_INIT_FLAGS(INIT_DEFAULT);
++
++#define ASSETS_FILE     "/dimm/orunners_naomi.assets"
++
++/* The board's wheel as MAME has it (ports/sdl2/main.c) */
++#define WHEEL_LEFT      0x10
++#define WHEEL_CENTRE    0x80
++#define WHEEL_RIGHT     0xf0
++
++/* ---- the cabinet's controls (docs/hardware.md of naomi-wheel-games: a Crazy Taxi upright) ---- */
++
++static struct
++{
++	int wheel_min, wheel_centre, wheel_max;
++	int gas_min, gas_max;
++	int brake_min, brake_max;
++} calibration = { 8448, 33792, 60160, 11776, 47104, 14080, 47360 };
++
++static int coin_counts_known;
++static uint16_t coin_counts[MIE_JVS_COIN_SLOTS];
++static int coin_frames;
++
++static int raw_analog(uint16_t raw)
++{
++	return (int)(raw & MIE_JVS_ANALOG_RAW_MASK);
++}
++
++/* the wheel to the board's 0x10-0xf0, the calibration widening when the wheel goes further */
++static uint8_t steer(int raw)
++{
++	int value;
++
++	if (raw < calibration.wheel_min)
++		calibration.wheel_min = raw;
++	if (raw > calibration.wheel_max)
++		calibration.wheel_max = raw;
++	if (raw < calibration.wheel_centre)
++		value = WHEEL_CENTRE - (calibration.wheel_centre - raw) * (WHEEL_CENTRE - WHEEL_LEFT)
++			/ (calibration.wheel_centre - calibration.wheel_min);
++	else
++		value = WHEEL_CENTRE + (raw - calibration.wheel_centre) * (WHEEL_RIGHT - WHEEL_CENTRE)
++			/ (calibration.wheel_max - calibration.wheel_centre);
++	return (uint8_t)(value < WHEEL_LEFT ? WHEEL_LEFT : (value > WHEEL_RIGHT ? WHEEL_RIGHT : value));
++}
++
++/* a pedal to 0-255, with 6 % at each end so that rest reads 0 and a full press 255 */
++static uint8_t pedal(int raw, int *low, int *high)
++{
++	int margin, from, to;
++
++	if (raw < *low)
++		*low = raw;
++	if (raw > *high)
++		*high = raw;
++	margin = (*high - *low) * 6 / 100;
++	from = *low + margin;
++	to = *high - margin;
++	if (raw <= from)
++		return 0;
++	if (raw >= to)
++		return 255;
++	return (uint8_t)((raw - from) * 255 / (to - from));
++}
++
++/* At the start of VBLANK, when the board reads its controls (MAME polls them then too). The shifter's two
++   positions with their spring: forward is shift up (HIGH), back shift down (LOW); the game holds the gear */
++static void on_controls_update(void)
++{
++	s32_inputs *input = &s32_board.input;
++	maple_device_t *device = maple_enum_type(0, MAPLE_FUNC_MIE);
++	const mie_state_t *state = device && device->valid ? (const mie_state_t *)maple_dev_status(device) : NULL;
++	bool shift_up = false, shift_down = false, start = false, coin = false, service = false, test = false;
++	uint8_t wheel = WHEEL_CENTRE, gas = 0, brake = 0;
++
++	if (state)
++	{
++		const mie_jvs_inputs_t *jvs = &state->jvs;
++
++		wheel = steer(raw_analog(jvs->wheel));
++		gas = pedal(raw_analog(jvs->accel), &calibration.gas_min, &calibration.gas_max);
++		brake = pedal(raw_analog(jvs->brake), &calibration.brake_min, &calibration.brake_max);
++		shift_up = jvs->p1.up;
++		shift_down = jvs->p1.down;
++		start = jvs->p1.start;
++		service = jvs->p1.service || jvs->panel.psw.service;
++		test = jvs->system.test || jvs->panel.psw.test;
++		/* the coins by the meters' difference: the driver's pulse arrives already cleared (docs/hardware.md) */
++		for (int slot = 0; slot < MIE_JVS_COIN_SLOTS; slot++)
++		{
++			if (coin_counts_known && jvs->coin[slot].count != coin_counts[slot])
++				coin_frames = 4;
++			coin_counts[slot] = jvs->coin[slot].count;
++		}
++		coin_counts_known = 1;
++	}
++	if (coin_frames > 0)
++	{
++		coin = true;
++		coin_frames--;
++	}
++	/* the 315-5296s' ports are active low */
++	input->port_a[0] = (uint8_t)(0xff & ~(shift_up ? 0x01 : 0) & ~(shift_down ? 0x02 : 0));
++	input->port_b[0] = 0xff;
++	input->port_e[0] = (uint8_t)(0xff & ~(service ? 0x01 : 0) & ~(test ? 0x02 : 0) & ~(coin ? 0x04 : 0)
++		& ~(start ? 0x10 : 0));
++	input->port_a[1] = input->port_b[1] = input->port_e[1] = 0xff;
++	input->analog[0] = wheel;
++	input->analog[1] = gas;
++	input->analog[2] = brake;
++	input->analog[3] = WHEEL_CENTRE;
++	input->analog[6] = input->analog[7] = 0;
++	orunners_naomi_live.inputs = (uint32_t)wheel | (uint32_t)gas << 8 | (uint32_t)brake << 16
++		| (uint32_t)input->port_e[0] << 24;
++}
++
++/* ---- the time each part takes ---- */
++
++static uint64_t frame_started, video_time, sound_time, frame_worst;
++static uint64_t second_game, second_sound, second_video;
++static uint32_t second_frames, second_drawn;
++
++/* The last second's figures, from the peek thread once a second (naomi_dimmcomms.c) */
++void naomi_live_second(void)
++{
++	const irq_mask_t old = irq_disable();
++	const uint32_t frames = second_frames, drawn = second_drawn;
++	const uint64_t game = second_game, sound = second_sound, video = second_video, worst = frame_worst;
++
++	second_frames = second_drawn = 0;
++	second_game = second_sound = second_video = frame_worst = 0;
++	irq_restore(old);
++	orunners_naomi_live.game_frames = frames;
++	orunners_naomi_live.drawn_frames = drawn;
++	orunners_naomi_live.game_us = frames ? (uint32_t)(game / frames) : 0;
++	orunners_naomi_live.sound_us = frames ? (uint32_t)(sound / frames) : 0;
++	orunners_naomi_live.video_us = drawn ? (uint32_t)(video / drawn) : 0;
++	orunners_naomi_live.worst_frame_us = (uint32_t)worst;
++	++orunners_naomi_live.seconds;
++}
++
++/* ---- the picture: video.c's frame, doubled, in a 640 x 480 RGB565 framebuffer ---- */
++
++static void show_frame(void)
++{
++	int width;
++	const uint32_t *frame = s32_video_frame(0, &width);
++	const int top = (480 - 2 * S32_VIDEO_HEIGHT) / 2;
++	const int left = (640 - 2 * (width > 320 ? 320 : width)) / 2;
++
++	for (int y = 0; y < S32_VIDEO_HEIGHT; y++)
++	{
++		const uint32_t *row = frame + (size_t)y * S32_VIDEO_MAX_WIDTH;
++		uint32_t *out0 = (uint32_t *)(vram_s + (size_t)(top + 2 * y) * 640 + left);
++		uint32_t *out1 = (uint32_t *)(vram_s + (size_t)(top + 2 * y + 1) * 640 + left);
++
++		/* (32-bit writes: the VRAM takes no byte writes, docs/hardware.md) */
++		for (int x = 0; x < 320 && x < width; x++)
++		{
++			const uint32_t pixel = row[x];
++			const uint32_t colour = (pixel >> 8 & 0xf800) | (pixel >> 5 & 0x07e0) | (pixel >> 3 & 0x001f);
++
++			out0[x] = out1[x] = colour | colour << 16;
++		}
++	}
++}
++
++/* Whether this frame is drawn: video.c's sprites and mix only for the screens shown, so on the other frames
++   it is told there is no screen at all (s32_video_show_screens(0)) and costs little */
++static bool drawing;
++
++static void choose_drawing(void)
++{
++	static uint32_t count;
++	uint32_t every = orunners_naomi_live.draw_every;
++
++	if (every < 1 || every > 60)
++		every = 4;
++	count++;
++	drawing = count % every == 0;
++	/* (the frame before a drawn one too: the sprites drawn in a frame may be the ones the next one shows) */
++	s32_video_show_screens(drawing || (count + 1) % every == 0 ? 1 : 0);
++}
++
++/* When the board's frame is shown (VBLANK) */
++static void on_frame_shown(void)
++{
++	uint64_t start;
++
++	if (!drawing)
++		return;
++	start = timer_us_gettime64();
++	s32_video_draw_frame();
++	show_frame();
++	video_time += timer_us_gettime64() - start;
++	second_drawn++;
++}
++
++static void on_frame_done(void)
++{
++	uint64_t start = timer_us_gettime64(), now;
++	size_t count;
++
++	/* the sound board up to the frame's end: the Z80's C, the YM3438's timers and the chips' samples */
++	if (s32_board.time_passes)
++		s32_board.time_passes(s32_board.cycles);
++	sound_chips_end_frame(s32_board.cycles);
++	(void)sound_chips_frame_mix(&count);
++	now = timer_us_gettime64();
++	sound_time += now - start;
++
++	{
++		const irq_mask_t old = irq_disable();
++		const uint64_t total = now - frame_started;
++
++		second_frames++;
++		second_sound += sound_time;
++		second_video += video_time;
++		second_game += total - sound_time - video_time;
++		if (total > frame_worst)
++			frame_worst = total;
++		irq_restore(old);
++	}
++	naomi_frames_alive++;
++	orunners_naomi_live.frames_total++;
++	video_time = sound_time = 0;
++	choose_drawing();
++
++	/* no faster than the board: a frame is 1/60 s (the 31 kHz monitor's vblank is 60 Hz too) */
++	vid_waitvbl();
++	frame_started = timer_us_gettime64();
++}
++
++static void on_irq_changed(bool asserted)
++{
++	program_irq_line(asserted);
++}
++
++static void on_log(const char *message)
++{
++	printf("board: %s\n", message);
++}
++
++/* ---- the assets: the NAOMI's pack from the NetDIMM into main RAM ---- */
++
++static void load_assets(void)
++{
++	FILE *input = fopen(ASSETS_FILE, "rb");
++	long size;
++	uint8_t *bytes;
++	const char *problem;
++	const uint64_t start = timer_ms_gettime64();
++
++	if (!input || fseek(input, 0, SEEK_END) != 0 || (size = ftell(input)) <= 0 || fseek(input, 0, SEEK_SET) != 0)
++		naomi_show_log("NO " ASSETS_FILE " (ports/naomi/naomi_assets.py)");
++	printf("NAOMI: %s, %ld bytes; %lu bytes of RAM above the heap\n", ASSETS_FILE, size,
++		(unsigned long)naomi_heap_left());
++	if (!(bytes = malloc((size_t)size)))
++		naomi_show_log("NO ROOM FOR THE ASSETS");
++	if (fread(bytes, 1, (size_t)size, input) != (size_t)size)
++		naomi_show_log("THE ASSETS CANNOT BE READ");
++	fclose(input);
++	printf("NAOMI: assets read in %lu ms\n", (unsigned long)(timer_ms_gettime64() - start));
++	if ((problem = assets_load_pack_bytes(bytes, (size_t)size)) != NULL)
++	{
++		printf("NAOMI: %s\n", problem);
++		naomi_show_log("THE ASSETS ARE NOT THIS BUILD'S");
++	}
++}
++
++int main(int argc, char **argv)
++{
++	(void)argc;
++	(void)argv;
++	naomi_boot();
++	vid_set_mode(DM_640x480, PM_RGB565);
++	vid_clear(0, 0, 0);
++	load_assets();
++	orunners_naomi_live.heap_left = naomi_heap_left();
++	printf("NAOMI: %lu bytes of RAM left\n", (unsigned long)orunners_naomi_live.heap_left);
++	naomi_dimmcomms_start();
++
++	s32_board.irq_changed = on_irq_changed;
++	s32_board.controls_update = on_controls_update;
++	s32_board.log = on_log;
++	s32_board.frame_timing = true;
++	s32_board.program_at = data_byte_at;
++	s32_init(NULL);
++	s32_video_init_graphics(assets_graphics());
++	choose_drawing();    /* (one screen at most, the cabinet's: s32_video_show_screens) */
++	s32_board.frame_shown = on_frame_shown;
++	s32_board.sound_at = assets_sound_data;
++	s32_board.sound_byte_at = assets_sound_byte;
++	s32_board.pcm_at = assets_pcm_byte;
++	sound_chips_attach();
++	sound_cpu_attach();
++	program_reset();
++	program_frame_done = on_frame_done;
++	frame_started = timer_us_gettime64();
++	printf("NAOMI: the game starts\n");
++	program_run();
++	naomi_show_log("THE GAME STOPPED");
++}
+diff --git a/ports/naomi/naomi.h b/ports/naomi/naomi.h
+new file mode 100644
+index 0000000..cd29299
+--- /dev/null
++++ b/ports/naomi/naomi.h
+@@ -0,0 +1,56 @@
++/**
++ *    Name:        naomi.h
++ *    Description: OutRunners on a SEGA NAOMI / NAOMI 2 with a NetDIMM (KallistiOS, KOS_SUBARCH=naomi): the board's
++ *                 pieces the computers' ports get from SDL (ports/naomi/README.md)
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    The NetDIMM files (naomi_dimmfs.c), the peeks (naomi_dimmcomms.c) and the console ring (naomi_log.c) come from
++ *    the NAOMI build of Daytona USA's native port (0skarzer0/daytona-arcade-recomp, branch naomi-native).
++ */
++#ifndef ORUNNERS_NAOMI_H
++#define ORUNNERS_NAOMI_H
++
++#include <stdint.h>
++
++/* Live figures for the netbooter's Raspberry to peek at (live.py): 32-bit words, little endian. Its address is
++   the console's line "NAOMI: live figures at ..." or `sh-elf-nm` on the ELF (orunners_naomi_live). */
++typedef struct
++{
++	uint32_t magic;            /* +0x00 "ORUN" (0x4e55524f) */
++	uint32_t version;          /* +0x04 1 */
++	uint32_t seconds;          /* +0x08 seconds counted; the figures below are of the last one */
++	uint32_t game_frames;      /* +0x0c the game's frames run in the last second (60 = full speed) */
++	uint32_t drawn_frames;     /* +0x10 frames drawn on the screen in the last second */
++	uint32_t game_us;          /* +0x14 the V70's C and the board a frame, average (microseconds) */
++	uint32_t sound_us;         /* +0x18 the Z80's C and the sound chips a frame, average */
++	uint32_t video_us;         /* +0x1c video.c's frame plus the copy to the screen, average of the frames drawn */
++	uint32_t worst_frame_us;   /* +0x20 the longest game frame of the last second, video and sound included */
++	uint32_t frames_total;     /* +0x24 the game's frames since boot */
++	uint32_t dimm_requests;    /* +0x28 peeks and pokes answered */
++	uint32_t log_lines;        /* +0x2c address of the console ring: log_count lines of log_width bytes */
++	uint32_t log_count;        /* +0x30 */
++	uint32_t log_width;        /* +0x34 */
++	uint32_t log_next;         /* +0x38 address of the number of lines written so far */
++	uint32_t heap_left;        /* +0x3c bytes above the heap's top after loading */
++	uint32_t draw_every;       /* +0x40 a frame drawn every this many (pokeable: 1-60) */
++	uint32_t inputs;           /* +0x44 wheel | gas << 8 | brake << 16 | port E bits << 24, as the game reads them */
++} orunners_naomi_live_t;
++extern volatile orunners_naomi_live_t orunners_naomi_live;
++
++/* main(), first: the console into the ring, the archive in the NetDIMM mounted on /dimm, the watchdog */
++int naomi_boot(void);
++
++/* The kept console lines on the screen, for good */
++void naomi_show_log(const char *why) __attribute__((noreturn));
++
++/* Main RAM above the heap's top */
++uint32_t naomi_heap_left(void);
++
++/* The thread that answers the NetDIMM's peeks and pokes */
++void naomi_dimmcomms_start(void);
++
++/* The game's frame counter, for the watchdog */
++extern volatile uint32_t naomi_frames_alive;
++
++#endif
+diff --git a/ports/naomi/naomi_assets.py b/ports/naomi/naomi_assets.py
+new file mode 100755
+index 0000000..81bed11
+--- /dev/null
++++ b/ports/naomi/naomi_assets.py
+@@ -0,0 +1,103 @@
++#!/usr/bin/env python3
++"""The NAOMI's assets: the game's pack (ORAP, runtime/src/assets_pack.c) made smaller for its 32 MB of RAM.
++
++Usage: naomi_assets.py PACK.assets OUT.naomi-assets OUT.pcm
++
++- the tiles' pens two to a byte (128 bytes a tile instead of 256; the low nibble the even pixel), which
++  runtime/src/video.c reads with ORUNNERS_PACKED_PENS: 4 MB less;
++- the MultiPCM's samples out of the pack, into OUT.pcm: the chip's 4 MB as the sound board sees them (headers,
++  then each block at its place, 0xff where there is none), for the AICA's RAM. The pack keeps the headers and
++  no blocks.
++The magic becomes "ORAN" so that a computer's build never takes it for its own. Like the pack, the output is
++made from the player's ROM set on the player's machine and is never shared.
++"""
++import struct
++import sys
++
++TILE_COUNT = 0x8000
++PCM_HEADERS_SIZE = 0x200 * 12
++PCM_SIZE = 0x400000
++
++
++class Reader:
++    def __init__(self, data):
++        self.data, self.at = data, 0
++
++    def u32(self):
++        value, = struct.unpack_from("<I", self.data, self.at)
++        self.at += 4
++        return value
++
++    def raw(self, size):
++        out = self.data[self.at:self.at + size]
++        if len(out) != size:
++            raise ValueError("the pack ends early")
++        self.at += size + (-size) % 4
++        return out
++
++
++class Writer:
++    def __init__(self):
++        self.parts = []
++
++    def u32(self, value):
++        self.parts.append(struct.pack("<I", value))
++
++    def raw(self, data):
++        self.parts.append(bytes(data) + b"\0" * ((-len(data)) % 4))
++
++    def bytes(self):
++        return b"".join(self.parts)
++
++
++def main():
++    pack, out_pack, out_pcm = sys.argv[1:4]
++    r = Reader(open(pack, "rb").read())
++    if r.raw(4) != b"ORAP":
++        sys.exit(f"{pack}: not an assets pack")
++    w = Writer()
++    w.raw(b"ORAN")
++    w.u32(r.u32())    # the pack's version
++    w.u32(r.u32())    # the tables' version
++    for _region in range(2):    # the V70's pieces, then the sound program's
++        count = r.u32()
++        w.u32(count)
++        for _ in range(count):
++            address, size = r.u32(), r.u32()
++            w.u32(address)
++            w.u32(size)
++            w.raw(r.raw(size))
++    present = r.raw(TILE_COUNT // 8)
++    w.raw(present)
++    tiles = 0
++    for tile in range(TILE_COUNT):
++        if (present[tile // 8] >> (tile % 8)) & 1:
++            pens = r.raw(256)
++            w.raw(bytes((pens[i] & 15) | (pens[i + 1] & 15) << 4 for i in range(0, 256, 2)))
++            tiles += 1
++    blocks = r.u32()
++    w.u32(blocks)
++    sprite_bytes = 0
++    for _ in range(blocks):
++        first, count = r.u32(), r.u32()
++        w.u32(first)
++        w.u32(count)
++        w.raw(r.raw(count * 4))
++        sprite_bytes += count * 4
++    headers = r.raw(PCM_HEADERS_SIZE)
++    w.raw(headers)
++    w.u32(0)    # no sample blocks: they go to the AICA
++    pcm = bytearray(b"\xff" * PCM_SIZE)
++    pcm[:PCM_HEADERS_SIZE] = headers
++    for _ in range(r.u32()):
++        offset, length = r.u32(), r.u32()
++        pcm[offset:offset + length] = r.raw(length)
++    out = w.bytes()
++    open(out_pack, "wb").write(out)
++    open(out_pcm, "wb").write(pcm)
++    print(f"{out_pack}: {len(out) / 2**20:.1f} MB ({tiles} tiles, {sprite_bytes / 2**20:.1f} MB of sprites); "
++          f"{out_pcm}: {len(pcm) / 2**20:.0f} MB")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/ports/naomi/naomi_dimmcomms.c b/ports/naomi/naomi_dimmcomms.c
+new file mode 100644
+index 0000000..caefc64
+--- /dev/null
++++ b/ports/naomi/naomi_dimmcomms.c
+@@ -0,0 +1,110 @@
++/**
++ *    Name:        naomi_dimmcomms.c
++ *    Description: answers the NetDIMM's peeks and pokes, so that the netbooter's Raspberry can read the live figures
++ *                 (naomi.h, live.py) and the console ring while the game runs
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    From naomi_dimmcomms.c of Daytona USA's native port on the NAOMI (0skarzer0/daytona-arcade-recomp, branch
++ *    naomi-native), its protocol as libnaomi's dimmcomms.c (DragonMinded) and dc2naomi's resident:
++ *      - the DIMM raises bit 3 of Holly's external interrupt status (0xa05f6904) and leaves a command in 0xa05f703c:
++ *        0x8000 = pending, bits 14-9 = id (4/5/6 peek 8/16/32, 8/9/10 poke 8/16/32), bits 8-0 with 0xa05f7040 the
++ *        address's offset; the poke's value in 0xa05f7044 (low) / 0xa05f7048 (high);
++ *      - firmware 3.17 sends only the low 25 bits: an offset into the 32 MB of RAM, unless a 32-bit poke to the
++ *        window offset 0x01fffffc set another base;
++ *      - only memory that cannot fault is touched (the rest reads 0xbadadd00);
++ *      - the answer: id | 1 in the command word, the value in 0xa05f7044/48, bit 8 of 0xa05f704c set, wait for the
++ *        interrupt to drop, bit 0 of 0xa05f704c cleared.
++ *    Polled every 2 ms by a thread of its own, under the lock of the /dimm reads (the cartridge port's registers).
++ */
++#include <kos.h>
++#include <arch/timer.h>
++#include <stdint.h>
++#include <stdio.h>
++
++#include "naomi.h"
++#include "naomi_dimmfs.h"
++
++#define REG8(a) (*(volatile uint8_t *)(uintptr_t)(a))
++#define REG16(a) (*(volatile uint16_t *)(uintptr_t)(a))
++#define REG32(a) (*(volatile uint32_t *)(uintptr_t)(a))
++#define DIMM_COMMAND 0xa05f703cu
++#define DIMM_OFFSETL 0xa05f7040u
++#define DIMM_PARAML 0xa05f7044u
++#define DIMM_PARAMH 0xa05f7048u
++#define DIMM_STATUS 0xa05f704cu
++#define ISTEXT 0xa05f6904u
++#define DIMM_WINDOW 0x01fffffcu
++
++/* Peek at it: 32-bit words, little-endian (naomi.h). */
++volatile orunners_naomi_live_t orunners_naomi_live = {.magic = 0x4e55524fu /* "ORUN" */, .version = 1, .draw_every = 4};
++
++static uint32_t dimm_base;
++
++static uint32_t dimm_addr(uint32_t a) {
++    const uint32_t phys = a & 0x1fffffffu;
++    if (a >= 0xff000000u) return a;
++    if (phys >= 0x0c000000u && phys < 0x0e000000u) return ((a >> 29) == 5 ? 0xa0000000u : 0x80000000u) | phys;
++    if ((phys >= 0x005f6800u && phys < 0x005fa000u) || (phys >= 0x00700000u && phys < 0x00711000u) ||
++        (phys >= 0x00800000u && phys < 0x00a00000u) || (phys >= 0x04000000u && phys < 0x05800000u))
++        return 0xa0000000u | phys;
++    return 0;
++}
++
++static void dimm_service(void) {
++    if (!(REG32(ISTEXT) & 8)) return;
++    const uint32_t cmd = REG16(DIMM_COMMAND);
++    if (cmd == 0xffff || !(cmd & 0x8000)) return;
++    uint32_t id = (cmd >> 9) & 0x3f, ret = 1, pl = 0, ph = 0;
++    const uint32_t off = ((cmd & 0x1ff) << 16) | REG16(DIMM_OFFSETL);
++    const uint32_t a = off + (dimm_base ? dimm_base : 0x0c000000u);
++    const uint32_t val = (uint32_t)REG16(DIMM_PARAMH) << 16 | REG16(DIMM_PARAML);
++    const uint32_t t = dimm_addr(a);
++    if (off == DIMM_WINDOW && id == 10) { dimm_base = val; id = 0; }
++    if (off == DIMM_WINDOW && id == 6) { pl = dimm_base & 0xffff; ph = dimm_base >> 16; id = 0; }
++    switch (id) {
++    case 0: case 1: break;
++    case 3: dimm_base = val; break;
++    case 4: pl = t ? REG8(t) : 0xad; break;
++    case 5: if (a & 1) ret = 0; else pl = t ? REG16(t) : 0xbadd; break;
++    case 6:
++        if (a & 3) { ret = 0; break; }
++        { const uint32_t v = t ? REG32(t) : 0xbadadd00u; pl = v & 0xffff; ph = v >> 16; }
++        break;
++    case 8: if (t) REG8(t) = (uint8_t)val; break;
++    case 9: if (a & 1) ret = 0; else if (t) REG16(t) = (uint16_t)val; break;
++    case 10: if (a & 3) ret = 0; else if (t) REG32(t) = val; break;
++    default: ret = 0xff; break;
++    }
++    ++orunners_naomi_live.dimm_requests;
++    REG16(DIMM_COMMAND) = (uint16_t)((cmd & 0x7e00) | ret);
++    REG16(DIMM_OFFSETL) = 0;
++    REG16(DIMM_PARAML) = (uint16_t)pl;
++    REG16(DIMM_PARAMH) = (uint16_t)ph;
++    REG16(DIMM_STATUS) = (uint16_t)(REG16(DIMM_STATUS) | 0x100);
++    for (uint32_t i = 0; i < 200000 && (REG32(ISTEXT) & 8); i++) {}
++    REG16(DIMM_STATUS) = (uint16_t)(REG16(DIMM_STATUS) & 0xfffe);
++}
++
++/* The figures of the last second are kept by main.c (naomi_live_second); this thread only answers peeks */
++extern void naomi_live_second(void);
++
++static void *service(void *unused) {
++    (void)unused;
++    uint64_t next = timer_ms_gettime64() + 1000;
++    for (;;) {
++        dimmfs_lock();
++        dimm_service();
++        dimmfs_unlock();
++        if (timer_ms_gettime64() >= next) { next += 1000; naomi_live_second(); }
++        thd_sleep(2);
++    }
++    return NULL;
++}
++
++void naomi_dimmcomms_start(void) {
++    const kthread_attr_t attributes = {.create_detached = true, .stack_size = 4096, .label = "naomi dimm",
++                                       .prio = PRIO_DEFAULT - 1};
++    if (!thd_create_ex(&attributes, service, NULL)) { printf("NAOMI: no NetDIMM peek thread\n"); return; }
++    printf("NAOMI: NetDIMM peek/poke on; live figures at %p\n", (void *)&orunners_naomi_live);
++}
+diff --git a/ports/naomi/naomi_dimmfs.c b/ports/naomi/naomi_dimmfs.c
+new file mode 100644
+index 0000000..c721e53
+--- /dev/null
++++ b/ports/naomi/naomi_dimmfs.c
+@@ -0,0 +1,316 @@
++/***************************************************************************
++    From 0skarzer0/daytona-arcade-recomp, branch naomi-native (platform/dreamcast-native/naomi), as it is.
++
++    NAOMI: read-only files stored in the NetDIMM (or cartridge) memory,
++    mounted at /dimm. See dimmfs.h.
++
++    Archive layout (little endian, written by naomi_pack.py):
++
++        0x00  char     magic[8]     "CBDIMMFS"
++        0x08  uint32   version      1
++        0x0C  uint32   count        number of entries
++        0x10  entry    entries[count]
++                 char     name[56]  path inside /dimm, no leading '/'
++                 uint32   offset    from the start of the archive
++                 uint32   size      in bytes
++
++    Reading the cartridge port (as DragonMinded's libnaomi does, https://github.com/DragonMinded/libnaomi:
++    the sequence is theirs, reimplemented here on KallistiOS): write the low 16 bits of
++    the address to 0xA05F7004, then the high bits with bit 15 set (auto
++    increment) to 0xA05F7000, then read 16-bit words from 0xA05F7008.
++***************************************************************************/
++
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++#include <errno.h>
++#include <sys/stat.h>
++
++#include <kos/fs.h>
++#include <kos/irq.h>
++#include <kos/mutex.h>
++#include <kos/nmmgr.h>
++#include <kos/dbglog.h>
++
++#include "naomi_dimmfs.h"
++
++#define CART_OFFSETH_REG (*(volatile uint16_t *)0xA05F7000)
++#define CART_OFFSETL_REG (*(volatile uint16_t *)0xA05F7004)
++#define CART_DATA_REG    (*(volatile uint16_t *)0xA05F7008)
++
++#define DIMMFS_ALIGN     0x10000
++#define DIMMFS_NAME_MAX  56
++#define CHUNK            4096     /* words read with interrupts off at a time */
++
++typedef struct {
++    char     name[DIMMFS_NAME_MAX];
++    uint32_t offset;
++    uint32_t size;
++} dimmfs_entry_t;
++
++typedef struct {
++    const dimmfs_entry_t *entry;
++    uint32_t pos;
++} dimmfs_file_t;
++
++static mutex_t         lock = MUTEX_INITIALIZER;
++static uint32_t        archive_base;          /* cartridge address of the archive */
++static dimmfs_entry_t *entries;
++static uint32_t        entry_count;
++static int             mounted;
++static uint16_t        bounce[CHUNK / 2 + 2];
++/* Files copied into main RAM at boot (dimmfs_cache): their reads are a memcpy, not PIO through the cartridge
++ * port. Index parallel to entries; NULL when the file is read from the NetDIMM. */
++static uint8_t       **resident;
++
++/* Read len bytes (even) from cartridge address src (even) into dst (2-byte
++   aligned). Interrupts are off only for one chunk at a time. */
++static void cart_read_words(uint16_t *dst, uint32_t src, uint32_t len)
++{
++    while (len > 0) {
++        uint32_t n = len > CHUNK ? CHUNK : len;
++        irq_mask_t old = irq_disable();
++        CART_OFFSETL_REG = src & 0xFFFF;
++        CART_OFFSETH_REG = 0x8000 | ((src >> 16) & 0x0FFF);
++        for (uint32_t i = 0; i < n; i += 2)
++            *dst++ = CART_DATA_REG;
++        irq_restore(old);
++        src += n;
++        len -= n;
++    }
++}
++
++/* Any address, any length, any destination: through the bounce buffer */
++static void cart_read_any(void *dst, uint32_t src, uint32_t len)
++{
++    uint8_t *out = (uint8_t *)dst;
++    while (len > 0) {
++        uint32_t start = src & ~1u;
++        uint32_t skip  = src - start;
++        uint32_t n     = len > CHUNK - 2 ? CHUNK - 2 : len;
++        uint32_t span  = (skip + n + 1) & ~1u;
++        cart_read_words(bounce, start, span);
++        memcpy(out, (uint8_t *)bounce + skip, n);
++        out += n;
++        src += n;
++        len -= n;
++    }
++}
++
++static const dimmfs_entry_t *find(const char *fn)
++{
++    while (*fn == '/')
++        fn++;
++    for (uint32_t i = 0; i < entry_count; i++)
++        if (strncmp(entries[i].name, fn, DIMMFS_NAME_MAX) == 0)
++            return &entries[i];
++    return NULL;
++}
++
++static void *dimmfs_open(vfs_handler_t *vfs, const char *fn, int mode)
++{
++    (void)vfs;
++    if ((mode & O_MODE_MASK) != O_RDONLY || (mode & O_DIR)) {
++        errno = EROFS;
++        return NULL;
++    }
++    const dimmfs_entry_t *e = find(fn);
++    if (!e) {
++        errno = ENOENT;
++        return NULL;
++    }
++    dimmfs_file_t *f = (dimmfs_file_t *)malloc(sizeof(dimmfs_file_t));
++    if (!f) {
++        errno = ENOMEM;
++        return NULL;
++    }
++    f->entry = e;
++    f->pos = 0;
++    return f;
++}
++
++static int dimmfs_close(void *h)
++{
++    free(h);
++    return 0;
++}
++
++static ssize_t dimmfs_read(void *h, void *buf, size_t bytes)
++{
++    dimmfs_file_t *f = (dimmfs_file_t *)h;
++    uint32_t left = f->entry->size - f->pos;
++    if (bytes > left)
++        bytes = left;
++    if (bytes == 0)
++        return 0;
++
++    const uint8_t *ram = resident ? resident[f->entry - entries] : NULL;
++    if (ram) {
++        memcpy(buf, ram + f->pos, bytes);
++    } else {
++        mutex_lock(&lock);
++        cart_read_any(buf, archive_base + f->entry->offset + f->pos, bytes);
++        mutex_unlock(&lock);
++    }
++
++    f->pos += bytes;
++    return (ssize_t)bytes;
++}
++
++static off_t dimmfs_seek(void *h, off_t offset, int whence)
++{
++    dimmfs_file_t *f = (dimmfs_file_t *)h;
++    off_t pos;
++    switch (whence) {
++        case SEEK_SET: pos = offset; break;
++        case SEEK_CUR: pos = (off_t)f->pos + offset; break;
++        case SEEK_END: pos = (off_t)f->entry->size + offset; break;
++        default: errno = EINVAL; return -1;
++    }
++    if (pos < 0) { errno = EINVAL; return -1; }
++    if (pos > (off_t)f->entry->size) pos = f->entry->size;
++    f->pos = (uint32_t)pos;
++    return pos;
++}
++
++static off_t dimmfs_tell(void *h)
++{
++    return ((dimmfs_file_t *)h)->pos;
++}
++
++static size_t dimmfs_total(void *h)
++{
++    return ((dimmfs_file_t *)h)->entry->size;
++}
++
++static void fill_stat(struct stat *st, const dimmfs_entry_t *e)
++{
++    memset(st, 0, sizeof(struct stat));
++    st->st_mode  = S_IFREG | S_IRUSR | S_IRGRP | S_IROTH;
++    st->st_size  = e->size;
++    st->st_nlink = 1;
++}
++
++static int dimmfs_stat(vfs_handler_t *vfs, const char *path, struct stat *st, int flag)
++{
++    (void)vfs; (void)flag;
++    const dimmfs_entry_t *e = find(path);
++    if (!e) {
++        errno = ENOENT;
++        return -1;
++    }
++    fill_stat(st, e);
++    return 0;
++}
++
++static int dimmfs_fstat(void *h, struct stat *st)
++{
++    fill_stat(st, ((dimmfs_file_t *)h)->entry);
++    return 0;
++}
++
++static vfs_handler_t vh = {
++    .nmmgr = {
++        .pathname = "/dimm",
++        .pid      = 0,
++        .version  = 0x00010000,
++        .flags    = 0,
++        .type     = NMMGR_TYPE_VFS,
++        .list_ent = NMMGR_LIST_INIT
++    },
++    .open  = dimmfs_open,
++    .close = dimmfs_close,
++    .read  = dimmfs_read,
++    .seek  = dimmfs_seek,
++    .tell  = dimmfs_tell,
++    .total = dimmfs_total,
++    .stat  = dimmfs_stat,
++    .fstat = dimmfs_fstat
++};
++
++int dimmfs_init(void)
++{
++    uint8_t hdr[0x500];
++    uint32_t seg_offset, seg_length;
++    char magic[8];
++    uint32_t version, count;
++
++    if (mounted)
++        return (int)entry_count;
++
++    /* NAOMI header: first program segment at 0x360 (offset, address, length) */
++    cart_read_any(hdr, 0, sizeof(hdr));
++    if (memcmp(hdr, "NAOMI", 5) != 0) {
++        dbglog(DBG_INFO, "dimmfs: no NAOMI header in the cartridge space\n");
++        return -1;
++    }
++    memcpy(&seg_offset, &hdr[0x360], 4);
++    memcpy(&seg_length, &hdr[0x368], 4);
++    archive_base = (seg_offset + seg_length + DIMMFS_ALIGN - 1) & ~(DIMMFS_ALIGN - 1);
++
++    cart_read_any(magic, archive_base, 8);
++    if (memcmp(magic, "CBDIMMFS", 8) != 0) {
++        dbglog(DBG_INFO, "dimmfs: no archive at 0x%08lx\n", (unsigned long)archive_base);
++        return -1;
++    }
++    cart_read_any(&version, archive_base + 8, 4);
++    cart_read_any(&count, archive_base + 12, 4);
++    if (version != 1 || count == 0 || count > 4096) {
++        dbglog(DBG_ERROR, "dimmfs: bad archive (version %lu, %lu files)\n",
++               (unsigned long)version, (unsigned long)count);
++        return -1;
++    }
++
++    entries = (dimmfs_entry_t *)malloc(count * sizeof(dimmfs_entry_t));
++    if (!entries)
++        return -1;
++    cart_read_any(entries, archive_base + 16, count * sizeof(dimmfs_entry_t));
++    entry_count = count;
++
++    if (nmmgr_handler_add(&vh.nmmgr) != 0) {
++        free(entries);
++        entries = NULL;
++        entry_count = 0;
++        return -1;
++    }
++    mounted = 1;
++    dbglog(DBG_INFO, "dimmfs: %lu files at 0x%08lx mounted on /dimm\n",
++           (unsigned long)count, (unsigned long)archive_base);
++    return (int)count;
++}
++
++int dimmfs_mounted(void)
++{
++    return mounted;
++}
++
++int dimmfs_cache(const char *name)
++{
++    if (!mounted)
++        return -1;
++    const dimmfs_entry_t *e = find(name);
++    if (!e)
++        return -1;
++    if (!resident && !(resident = (uint8_t **)calloc(entry_count, sizeof(uint8_t *))))
++        return -1;
++    const uint32_t i = (uint32_t)(e - entries);
++    if (resident[i])
++        return (int)e->size;
++    uint8_t *ram = (uint8_t *)malloc(e->size ? e->size : 1);
++    if (!ram)
++        return -1;
++    mutex_lock(&lock);
++    cart_read_any(ram, archive_base + e->offset, e->size);
++    mutex_unlock(&lock);
++    resident[i] = ram;
++    return (int)e->size;
++}
++
++int dimmfs_size(const char *name)
++{
++    const dimmfs_entry_t *e = mounted ? find(name) : NULL;
++    return e ? (int)e->size : -1;
++}
++
++void dimmfs_lock(void) { mutex_lock(&lock); }
++void dimmfs_unlock(void) { mutex_unlock(&lock); }
+diff --git a/ports/naomi/naomi_dimmfs.h b/ports/naomi/naomi_dimmfs.h
+new file mode 100644
+index 0000000..5591aa9
+--- /dev/null
++++ b/ports/naomi/naomi_dimmfs.h
+@@ -0,0 +1,38 @@
++/***************************************************************************
++    NAOMI: read-only files stored in the NetDIMM (or cartridge) memory.
++
++    The program the BIOS copies into the 32 MB of main RAM is only the first
++    part of the netboot image. naomi_pack.py appends an archive after it
++    (aligned to 64 KB): big files (the music) stay there and are read on
++    demand through the cartridge port, like a Dreamcast reads its GD-ROM.
++
++    dimmfs_init() finds the archive and mounts it at /dimm.
++***************************************************************************/
++
++#pragma once
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* Find the archive after the program and mount it at /dimm.
++   Returns the number of files, or -1 if there is no archive. */
++int dimmfs_init(void);
++
++/* Copy one file (its path inside /dimm, e.g. "sfx/voices.pak") into main RAM: its reads become a memcpy.
++   Returns its size, or -1 (not mounted, no such file, no memory: it stays read from the NetDIMM). */
++int dimmfs_cache(const char *name);
++
++/* A file's size (path inside /dimm), -1 when there is none. */
++int dimmfs_size(const char *name);
++
++/* The lock of the cartridge port (naomi_dimmcomms.c answers the NetDIMM under it too). */
++void dimmfs_lock(void);
++void dimmfs_unlock(void);
++
++/* Non-zero once /dimm is mounted */
++int dimmfs_mounted(void);
++
++#ifdef __cplusplus
++}
++#endif
+diff --git a/ports/naomi/naomi_log.c b/ports/naomi/naomi_log.c
+new file mode 100644
+index 0000000..001d1a2
+--- /dev/null
++++ b/ports/naomi/naomi_log.c
+@@ -0,0 +1,168 @@
++/**
++ *    Name:        naomi_log.c
++ *    Description: the console in a ring of lines, the failure screen, the watchdog and the boot (naomi.h)
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    After naomi_log.c of Daytona USA's native port on the NAOMI (0skarzer0/daytona-arcade-recomp, branch
++ *    naomi-native). A cabinet has no serial cable: the console goes to a dbgio device that keeps the last lines,
++ *    shown on the screen when something fails or the game stops running frames (with the main thread's pc and pr,
++ *    for sh-elf-addr2line), and readable live through the NetDIMM (live.py log).
++ */
++#include <kos.h>
++#include <kos/dbgio.h>
++#include <dc/video.h>
++#include <arch/arch.h>
++#include <stdio.h>
++#include <string.h>
++#include <unistd.h>
++
++#include "naomi.h"
++#include "naomi_dimmfs.h"
++
++#define LOG_LINES   160
++#define LOG_WIDTH   100
++#define SHOW_LINES  26
++#define HANG_FIRST_S 120    /* the boot reads 26 MB through the cartridge port */
++#define HANG_S      10
++
++static char lines[LOG_LINES][LOG_WIDTH];
++static volatile unsigned line_count;
++static unsigned column;
++static kthread_t *main_thread;
++volatile uint32_t naomi_frames_alive;
++
++uint32_t naomi_heap_left(void)
++{
++	const uintptr_t top = (uintptr_t)sbrk(0), mem_top = (uintptr_t)_arch_mem_top;
++
++	return mem_top > top ? (uint32_t)(mem_top - top) : 0;
++}
++
++static void put_char(char c)
++{
++	char *line = lines[line_count % LOG_LINES];
++
++	if (c == '\r')
++		return;
++	if (c == '\n')
++	{
++		line[column] = 0;
++		++line_count;
++		column = 0;
++		lines[line_count % LOG_LINES][0] = 0;
++		return;
++	}
++	if (column < LOG_WIDTH - 1)
++	{
++		line[column++] = c;
++		line[column] = 0;
++	}
++}
++
++static int ring_detected(void) { return 1; }
++static int ring_init(void) { return 0; }
++static int ring_shutdown(void) { return 0; }
++static int ring_set_irq_usage(int mode) { (void)mode; return 0; }
++static int ring_flush(void) { return 0; }
++static int ring_read_buffer(uint8_t *data, int len) { (void)data; (void)len; return -1; }
++
++static int ring_write_buffer(const uint8_t *data, int len, int xlat)
++{
++	const irq_mask_t old = irq_disable();
++
++	(void)xlat;
++	for (int i = 0; i < len; ++i)
++		put_char((char)data[i]);
++	irq_restore(old);
++	return len;
++}
++
++static dbgio_handler_t ring = {
++	.name = "naomi-ring",
++	.detected = ring_detected,
++	.init = ring_init,
++	.shutdown = ring_shutdown,
++	.set_irq_usage = ring_set_irq_usage,
++	.flush = ring_flush,
++	.write_buffer = ring_write_buffer,
++	.read_buffer = ring_read_buffer,
++};
++
++void naomi_show_log(const char *why)
++{
++	static char copy[LOG_LINES][LOG_WIDTH];
++	unsigned count, pick[SHOW_LINES], n = 0;
++	const irq_mask_t old = irq_disable();
++
++	count = line_count + (column ? 1u : 0u);
++	memcpy(copy, lines, sizeof(copy));
++	irq_restore(old);
++	vid_init(DM_640x480, PM_RGB565);
++	vid_clear(0, 0, 64);
++	dbgio_dev_select("fb");
++	printf("\n OUTRUNNERS (NAOMI) - %s\n\n", why);
++	for (unsigned i = count, oldest = count > LOG_LINES ? count - LOG_LINES : 0; i-- > oldest && n < SHOW_LINES;)
++		pick[n++] = i;
++	while (n)
++	{
++		char line[78];
++
++		snprintf(line, sizeof(line), "%s", copy[pick[--n] % LOG_LINES]);
++		printf(" %s\n", line);
++	}
++	for (;;)
++		thd_sleep(1000);
++}
++
++static void *watchdog(void *unused)
++{
++	uint32_t last = 0;
++	unsigned still = 0;
++	int seen = 0;
++
++	(void)unused;
++	for (;;)
++	{
++		thd_sleep(1000);
++		if (naomi_frames_alive != last)
++		{
++			last = naomi_frames_alive;
++			still = 0;
++			seen = 1;
++			continue;
++		}
++		if (++still >= (seen ? HANG_S : HANG_FIRST_S))
++		{
++			printf("NAOMI HANG: no game frame for %u s (%lu run), main thread pc %08lx pr %08lx\n", still,
++				(unsigned long)last, main_thread ? (unsigned long)main_thread->context.pc : 0ul,
++				main_thread ? (unsigned long)main_thread->context.pr : 0ul);
++			naomi_show_log("HANG");
++		}
++	}
++	return NULL;
++}
++
++int naomi_boot(void)
++{
++	const kthread_attr_t attributes = { .create_detached = true, .stack_size = 4096, .label = "naomi watchdog" };
++	int files;
++
++	setvbuf(stdout, NULL, _IONBF, 0);
++	lines[0][0] = 0;
++	if (dbgio_add_handler(&ring) == 0)
++		dbgio_dev_select("naomi-ring");
++	printf("NAOMI: OutRunners, KOS_SUBARCH=naomi\n");
++	main_thread = thd_get_current();
++	orunners_naomi_live.log_lines = (uint32_t)(uintptr_t)lines;
++	orunners_naomi_live.log_count = LOG_LINES;
++	orunners_naomi_live.log_width = LOG_WIDTH;
++	orunners_naomi_live.log_next = (uint32_t)(uintptr_t)&line_count;
++	files = dimmfs_init();
++	printf("NAOMI: NetDIMM archive: %d files\n", files);
++	if (files <= 0)
++		naomi_show_log("NO ASSETS IN THE NETDIMM IMAGE (ports/naomi/build_naomi.sh)");
++	if (!thd_create_ex(&attributes, watchdog, NULL))
++		printf("NAOMI: no watchdog\n");
++	return 0;
++}
+diff --git a/ports/naomi/naomi_pack.py b/ports/naomi/naomi_pack.py
+new file mode 100755
+index 0000000..a7f715f
+--- /dev/null
++++ b/ports/naomi/naomi_pack.py
+@@ -0,0 +1,72 @@
++#!/usr/bin/env python3
++"""Append a /dimm archive to a NAOMI netboot image (from 0skarzer0/daytona-arcade-recomp, branch naomi-native).
++
++    ports/naomi/naomi_pack.py <in.bin from naomibintool> <folder> <out.bin>
++
++Every file under <folder> goes into the archive with its path relative to
++<folder> (e.g. music/orig/1.wav -> /dimm/music/orig/1.wav). The archive starts
++at the end of the program segment rounded up to 64 KB, where dimmfs_init()
++looks for it (naomi_dimmfs.c). The BIOS only copies the program
++segment into RAM; the archive stays in the NetDIMM and is read on demand.
++"""
++import os
++import struct
++import sys
++
++ALIGN = 0x10000
++NAME_MAX = 56
++
++
++def main():
++    if len(sys.argv) != 4:
++        sys.exit(__doc__)
++    src_bin, folder, out_bin = sys.argv[1:]
++
++    image = bytearray(open(src_bin, "rb").read())
++    if image[:5] != b"NAOMI":
++        sys.exit(f"{src_bin}: not a NAOMI image")
++    seg_offset, _addr, seg_length = struct.unpack_from("<III", image, 0x360)
++    end = seg_offset + seg_length
++    base = (end + ALIGN - 1) & ~(ALIGN - 1)
++    if len(image) > base:
++        sys.exit(f"{src_bin}: data after the program segment, not a plain naomibintool image")
++    image += b"\0" * (base - len(image))
++
++    files = []
++    for root, _dirs, names in os.walk(folder):
++        for n in sorted(names):
++            full = os.path.join(root, n)
++            rel = os.path.relpath(full, folder).replace(os.sep, "/")
++            if len(rel.encode()) >= NAME_MAX:
++                sys.exit(f"name too long for the archive: {rel}")
++            files.append((rel, full))
++    files.sort()
++
++    header_size = 16 + len(files) * (NAME_MAX + 8)
++    data = bytearray()
++    entries = []
++    offset = (header_size + 31) & ~31
++    for rel, full in files:
++        blob = open(full, "rb").read()
++        entries.append((rel, offset, len(blob)))
++        data += blob
++        pad = (-(offset + len(blob))) % 32
++        data += b"\0" * pad
++        offset += len(blob) + pad
++
++    archive = bytearray(b"CBDIMMFS" + struct.pack("<II", 1, len(files)))
++    for rel, off, size in entries:
++        archive += rel.encode().ljust(NAME_MAX, b"\0") + struct.pack("<II", off, size)
++    archive += b"\0" * (((header_size + 31) & ~31) - len(archive))
++    archive += data
++
++    image += archive
++    open(out_bin, "wb").write(image)
++    print(f"{out_bin}: program {seg_length} bytes, archive at 0x{base:08x}, "
++          f"{len(files)} files, {len(archive)} bytes, total {len(image)} bytes")
++    if len(image) > 0x10000000:
++        print("warning: larger than 256 MB, beyond what the cartridge port addresses")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/runtime/src/assets_media.c b/runtime/src/assets_media.c
+index 3b7943f..43b8ebd 100644
+--- a/runtime/src/assets_media.c
++++ b/runtime/src/assets_media.c
+@@ -37,6 +37,11 @@
+ #include <string.h>
+ 
+ #define TILE_COUNT     0x8000u
++#ifdef ORUNNERS_PACKED_PENS
++#define TILE_PEN_BYTES 128u    /* (two pens a byte, the even pixel's in the low nibble: the NAOMI's pack) */
++#else
++#define TILE_PEN_BYTES 256u
++#endif
+ #define TILESET_ROW    32u           /* tiles a row of a tileset's PNG */
+ #define PCM_SIZE       0x400000u
+ #define PCM_HEADERS    0x200u
+@@ -772,7 +777,7 @@ int assets_pack_read_media(pack_reader *reader)
+ 	for (uint32_t tile = 0; tile < TILE_COUNT; tile++)
+ 		if ((present[tile / 8] >> (tile % 8)) & 1u)
+ 		{
+-			if (!(tile_pens[tile] = pack_get_bytes(reader, 256)))
++			if (!(tile_pens[tile] = pack_get_bytes(reader, TILE_PEN_BYTES)))
+ 				return 0;
+ 		}
+ 		else
+diff --git a/runtime/src/assets_pack.c b/runtime/src/assets_pack.c
+index 5be843f..c6efdfc 100644
+--- a/runtime/src/assets_pack.c
++++ b/runtime/src/assets_pack.c
+@@ -23,7 +23,11 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
++#ifdef ORUNNERS_PACKED_PENS
++#define PACK_MAGIC      "ORAN"    /* (the NAOMI's: ports/naomi/naomi_assets.py) */
++#else
+ #define PACK_MAGIC      "ORAP"
++#endif
+ #define PACK_VERSION    1u
+ 
+ /* ---- the parts' bytes ---- */
+diff --git a/runtime/src/tasks.c b/runtime/src/tasks.c
+index 09cc81f..08341f4 100644
+--- a/runtime/src/tasks.c
++++ b/runtime/src/tasks.c
+@@ -20,7 +20,9 @@
+ #include <string.h>
+ 
+ /* the C of a task nests as deep as the game's calls do, with the locals of the generated code */
++#ifndef TASK_STACK_SIZE
+ #define TASK_STACK_SIZE (16u << 20)
++#endif
+ 
+ #ifdef _WIN32
+ 
+@@ -179,6 +181,108 @@ void host_task_switch(host_task *to)
+ 	host_switch_stacks(&from->stack_pointer, to->stack_pointer);
+ }
+ 
++#elif defined(__SH4__) || defined(__sh__)
++/* The NAOMI's SH-4 (KallistiOS): no ucontext either, so as on aarch64 a task's registers are kept on its own
++   stack. What a call keeps for its caller in GCC's SH ABI: r8-r14, the return address pr and fr12-fr15; mach
++   and macl are kept too. r15 is the stack pointer. Measured on Linux (2026-11-13): two tasks, about 3.5 KB of
++   stack each, so the NAOMI build sets TASK_STACK_SIZE far below the 16 MB of the computers' builds */
++#define SAVED_WORDS 14    /* fr12-fr15, macl, mach, r8-r14, pr: from the top of the stack down */
++
++void host_switch_stacks(void **from_stack, void *to_stack) __asm__("host_switch_stacks_sh4");
++
++__asm__(
++	".text\n"
++	".global host_switch_stacks_sh4\n"
++	".align 2\n"
++	"host_switch_stacks_sh4:\n"
++	"	sts.l pr, @-r15\n"
++	"	mov.l r14, @-r15\n"
++	"	mov.l r13, @-r15\n"
++	"	mov.l r12, @-r15\n"
++	"	mov.l r11, @-r15\n"
++	"	mov.l r10, @-r15\n"
++	"	mov.l r9, @-r15\n"
++	"	mov.l r8, @-r15\n"
++	"	sts.l mach, @-r15\n"
++	"	sts.l macl, @-r15\n"
++	"	fmov.s fr15, @-r15\n"
++	"	fmov.s fr14, @-r15\n"
++	"	fmov.s fr13, @-r15\n"
++	"	fmov.s fr12, @-r15\n"
++	"	mov.l r15, @r4\n"
++	"	mov r5, r15\n"
++	"	fmov.s @r15+, fr12\n"
++	"	fmov.s @r15+, fr13\n"
++	"	fmov.s @r15+, fr14\n"
++	"	fmov.s @r15+, fr15\n"
++	"	lds.l @r15+, macl\n"
++	"	lds.l @r15+, mach\n"
++	"	mov.l @r15+, r8\n"
++	"	mov.l @r15+, r9\n"
++	"	mov.l @r15+, r10\n"
++	"	mov.l @r15+, r11\n"
++	"	mov.l @r15+, r12\n"
++	"	mov.l @r15+, r13\n"
++	"	mov.l @r15+, r14\n"
++	"	lds.l @r15+, pr\n"
++	"	rts\n"
++	"	nop\n");
++
++struct host_task
++{
++	void *stack_pointer;    /* where it stopped: its registers on top */
++	void *stack;
++	void (*start)(void);
++};
++
++static host_task main_task;
++static host_task *current;
++
++host_task *host_task_main(void)
++{
++	if (!current)
++		current = &main_task;
++	return &main_task;
++}
++
++static void run_task(void)
++{
++	current->start();
++	fprintf(stderr, "A task came to its end\n");
++	exit(3);
++}
++
++host_task *host_task_create(void (*start)(void))
++{
++	host_task *task = calloc(1, sizeof(*task));
++	uint32_t *registers;
++
++	if (task)
++		task->stack = malloc(TASK_STACK_SIZE);
++	if (!task || !task->stack)
++	{
++		fprintf(stderr, "A task could not be created\n");
++		exit(3);
++	}
++	task->start = start;
++	/* its first switch pops registers that return into run_task, at the top of its stack (8-byte aligned) */
++	registers = (uint32_t *)(((uintptr_t)task->stack + TASK_STACK_SIZE - SAVED_WORDS * 4) & ~(uintptr_t)7);
++	memset(registers, 0, SAVED_WORDS * 4);
++	registers[SAVED_WORDS - 1] = (uint32_t)(uintptr_t)run_task;    /* (pr: where the first rts goes) */
++	task->stack_pointer = registers;
++	return task;
++}
++
++void host_task_switch(host_task *to)
++{
++	host_task *from = current;
++
++	if (to == from)
++		return;
++	current = to;
++	host_switch_stacks(&from->stack_pointer, to->stack_pointer);
++}
++
+ #else
+ 
+ #include <ucontext.h>
+diff --git a/runtime/src/video.c b/runtime/src/video.c
+index 872e227..76aa7fc 100644
+--- a/runtime/src/video.c
++++ b/runtime/src/video.c
+@@ -215,7 +215,11 @@ static void clip_area(area *target, const area *bounds)
+ /* The pen (0-15) of a pixel of a 16x16 tile */
+ static int tile_pen(uint32_t tile, int x, int y)
+ {
++#ifdef ORUNNERS_PACKED_PENS
++	return (video.graphics.tile_pens[tile % video.graphics.tile_count][(y * 16 + x) >> 1] >> ((x & 1) << 2)) & 15;
++#else
+ 	return video.graphics.tile_pens[tile % video.graphics.tile_count][y * 16 + x];
++#endif
+ }
+ 
+ /* A pixel of a tilemap page (32 x 16 cells, 512 x 256 pixels). A cell is the tile number (13 bits, the
+-- 
+2.43.0
+
+
+From 52320d4a428a9457a07d746eee2c7a0e48ee89ae Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 04:44:05 +0100
+Subject: [PATCH 2/2] NAOMI port: no pthreads (workers_none.c); builds and
+ links with KOS for KOS_SUBARCH=naomi
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016VRYRPP2crYKhAiGSakTbz
+---
+ ports/naomi/.gitignore     |  4 ++++
+ ports/naomi/Makefile       |  4 ++--
+ ports/naomi/workers_none.c | 24 ++++++++++++++++++++++++
+ 3 files changed, 30 insertions(+), 2 deletions(-)
+ create mode 100644 ports/naomi/.gitignore
+ create mode 100644 ports/naomi/workers_none.c
+
+diff --git a/ports/naomi/.gitignore b/ports/naomi/.gitignore
+new file mode 100644
+index 0000000..afea2f0
+--- /dev/null
++++ b/ports/naomi/.gitignore
+@@ -0,0 +1,4 @@
++*.o
++*.elf
++runtime/
++game/
+diff --git a/ports/naomi/Makefile b/ports/naomi/Makefile
+index 5b542a8..0363a9a 100644
+--- a/ports/naomi/Makefile
++++ b/ports/naomi/Makefile
+@@ -8,10 +8,10 @@
+ ROOT := ../..
+ TARGET = orunners_naomi.elf
+ 
+-RUNTIME = machine io sound ym3438 memory_census tasks video workers multipcm sound_chips sound_cpu \
++RUNTIME = machine io sound ym3438 memory_census tasks video multipcm sound_chips sound_cpu \
+ 	game assets assets_media assets_midi assets_pack json png inflate
+ GAME_C := $(shell find $(ROOT)/src -name '*.c')
+-OBJS = main.o naomi_log.o naomi_dimmfs.o naomi_dimmcomms.o \
++OBJS = main.o naomi_log.o naomi_dimmfs.o naomi_dimmcomms.o workers_none.o \
+ 	$(addprefix runtime/,$(addsuffix .o,$(RUNTIME))) \
+ 	$(patsubst $(ROOT)/src/%.c,game/%.o,$(GAME_C))
+ 
+diff --git a/ports/naomi/workers_none.c b/ports/naomi/workers_none.c
+new file mode 100644
+index 0000000..7b61d97
+--- /dev/null
++++ b/ports/naomi/workers_none.c
+@@ -0,0 +1,24 @@
++/**
++ *    Name:        workers_none.c
++ *    Description: the video's workers (s32/workers.h) on the NAOMI: one processor, so the caller does all the rows
++ *                 (runtime/src/workers.c without its threads, which KallistiOS's pthreads addon would bring)
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ */
++#include "s32/workers.h"
++
++void s32_workers_start(int count)
++{
++	(void)count;
++}
++
++int s32_workers_count(void)
++{
++	return 0;
++}
++
++void s32_workers_rows(s32_rows_work work, void *context, int first, int last)
++{
++	work(context, first, last);
++}
+-- 
+2.43.0
+

@@ -1,6 +1,8 @@
 # OutRunners (Sega System Multi 32) en NAOMI: estudio y plan del port
 
-Estado (2026-11-13): **estudio hecho, port empezado.** El juego de PC corre aquí con el ROM del propietario y se ha
+Estado (2026-11-13, mañana): **fase 1 compilada, sin probar en placa.** Hay imagen de netboot (`orunners_naomi.bin.gz`,
+8,1 MB) generada con el ROM del propietario; el código está en [`outrunners/naomi-port.patch`](../outrunners/naomi-port.patch)
+hasta que exista el fork (sección 3). Antes de eso: **estudio hecho.** El juego de PC corre aquí con el ROM del propietario y se ha
 medido qué cuesta cada parte y qué usa del chip de vídeo. Conclusión: **factible**, con el vídeo reescrito para la
 PowerVR2. La lógica del juego y el programa de sonido caben de sobra en el SH-4.
 
@@ -81,17 +83,36 @@ Reproducir: `python3 outrunners/analyze_census.py census.txt 1700`.
 ## 3. Plan del port
 
 Repositorio previsto: un fork de cheviman/outrunners-port en la cuenta 0skarzer0 con rama `naomi`, igual que
-dreamcast-cannonball. Las piezas de NAOMI se reutilizan de Daytona nativo (rama `naomi-native`): `naomi_input.c`
+dreamcast-cannonball (pendiente de crear; mientras, `git am outrunners/naomi-port.patch` sobre el commit `12af5afe`). Las piezas de NAOMI se reutilizan de Daytona nativo (rama `naomi-native`): `naomi_input.c`
 (JVS/MIE), `naomi_dimmfs.c` (ficheros en el DIMM), `naomi_dimmcomms.c` + `live.py` (*peeks* desde la Pi para medir
 en placa), `naomi_log.c`, `naomi_save.c` (EEPROM) y `naomi_pack.py` (imagen `.bin.gz`).
 
-### Fase 1 — arranque y medida en placa
+### Fase 1 — arranque y medida en placa (compilada el 2026-11-13, sin probar en placa)
 - `ports/naomi/`: bucle principal con KOS (`KOS_SUBARCH=naomi`), lógica del juego y Z80 con los timers del YM3438
   (sin síntesis FM). Vídeo provisional: el `video.c` actual a 1 de cada N fotogramas, solo para ver algo.
 - Entradas JVS → `s32_inputs`: volante (analógico 0), gas (1), freno (2) con la calibración de
   [hardware.md](hardware.md). La palanca de 2 posiciones hace de LOW/HIGH: adelante `shift_up1`, atrás
   `shift_down1`. Monedero por diferencia de contadores; START con luz.
 - Medir por la NetDIMM (`live.py`): ms por fotograma de la lógica y del Z80. **Objetivo: < 3 ms.**
+
+Hecho (en `ports/naomi/` del parche):
+- `main.c`: bucle con KOS, JVS (volante, pedales, palanca → SHIFT UP/DOWN, START, monedas por diferencia de
+  contadores, SERVICE/TEST), `video.c` cada `draw_every` fotogramas (4 por defecto, se cambia en vivo) copiado a un
+  framebuffer de 640×480 RGB565, y tiempos de juego, sonido y vídeo por segundo en el bloque `orunners_naomi_live`.
+- `runtime/src/tasks.c`: cambio de tareas para el SH-4 (registros en la pila de la tarea, como en aarch64). En Linux
+  las dos tareas del juego usan ~3,5 KB de pila; en la NAOMI llevan 128 KB.
+- `ORUNNERS_PACKED_PENS` + `naomi_assets.py`: tiles a 4 bpp y samples aparte → el pack en RAM baja de 31 a 21,6 MB.
+  Comprobado en PC: mismos hashes de vídeo que la versión normal en 3.501 fotogramas.
+- Sin samples en RAM en esta fase: el MultiPCM suena en silencio (se miden igualmente el Z80 y los chips).
+- `naomi_dimmfs`, `naomi_dimmcomms` (peeks), anillo de consola y `naomi_pack.py`, de Daytona nativo.
+- Compila y enlaza con sh-elf-gcc 15.2.0 y KOS `368a2eb9` (NAOMI): 646 KB de código y 4,9 MB de datos estáticos.
+
+**Para probar en el mueble:** subir `orunners_naomi.bin.gz` a la Pi del mueble Crazy Taxi (`/boot/roms/`, por
+ejemplo como `h-outrunners_naomi.bin.gz`, con su fila en `romsinfo.csv`) y, con el juego en marcha, desde la Pi:
+`python3 live.py 10.0.0.4 0x8c0bef84 fps 60` (la dirección es la de esta compilación). Qué mirar: si arranca y se ve
+el attract (a ~15 fps de pantalla, a saltos), si `game` llega a 60 fps, los µs de `game`, `sound` y `video`, y si
+volante, pedales y monedas aparecen en la columna de entradas. Si se cuelga, la pantalla muestra la consola con el
+pc y el pr del hilo principal.
 
 ### Fase 2 — render PowerVR2 (lo grande)
 - **Páginas de tilemap → texturas** ARGB1555 (512×256 cada una), redibujando solo los tiles que cambian o cuyo banco
@@ -126,7 +147,7 @@ en placa), `naomi_log.c`, `naomi_save.c` (EEPROM) y `naomi_pack.py` (imagen `.bi
 15.2.0, binutils 2.45, newlib 4.6.0.20260123) con los tarballs de archive.ubuntu.com, porque el workspace bloquea los
 mirrors de GNU. Después KOS en el commit `368a2eb9`, el mismo que usa Daytona nativo, en dos árboles:
 `/opt/toolchains/dc/kos` (Dreamcast, para las utilidades) y `/opt/toolchains/dc/kos-naomi` (`KOS_SUBARCH=naomi`).
-Con 2 núcleos tarda más de una hora.
+Con 2 núcleos tardó unos 35 minutos. La primera vez falló al compilar las utilidades de KOS (faltaban `libjpeg-dev` y `libelf-dev`; el script ya las instala): el kernel sí se compiló.
 
 ## 5. Créditos
 

@@ -7,6 +7,7 @@ Ver [../docs/outrunners.md](../docs/outrunners.md).
 | `census.patch` | Censo de vídeo para `runtime/src/video.c` de [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port) (commit `12af5afe`): con `ORUNNERS_CENSUS=fichero`, una línea por fotograma con los registros de vídeo y mezclador, los sprites y los bancos de paleta visibles |
 | `race_arcade.txt` | Guion de controles para `orunners_game_headless`: moneda, START, gas y volante; llega a la carrera hacia el fotograma 1700 |
 | `analyze_census.py` | Resume el censo |
+| `naomi-port.patch` | El port a NAOMI (fase 1) para `git am` sobre cheviman/outrunners-port `12af5afe`, hasta que exista el fork |
 | `build_toolchain.sh` | sh-elf + KOS (normal y NAOMI) sin acceso a los mirrors de GNU |
 
 Receta:
