@@ -1,7 +1,7 @@
 From 046476afbf82e3b10901619456ed1847c0a9dae5 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 04:31:49 +0100
-Subject: [PATCH 1/8] NAOMI port, first stage: boot, JVS controls, live figures
+Subject: [PATCH 1/9] NAOMI port, first stage: boot, JVS controls, live figures
 
 ports/naomi: the game, its board and its sound program on a NAOMI's SH-4
 (KallistiOS, KOS_SUBARCH=naomi), the Crazy Taxi upright's wheel, pedals and
@@ -1722,7 +1722,7 @@ index 872e227..76aa7fc 100644
 From 52320d4a428a9457a07d746eee2c7a0e48ee89ae Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 04:44:05 +0100
-Subject: [PATCH 2/8] NAOMI port: no pthreads (workers_none.c); builds and
+Subject: [PATCH 2/9] NAOMI port: no pthreads (workers_none.c); builds and
  links with KOS for KOS_SUBARCH=naomi
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -1799,7 +1799,7 @@ index 0000000..7b61d97
 From 3d5d3349ae774a770c1b47d6550b508b42237d79 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 10:12:23 +0100
-Subject: [PATCH 3/8] NAOMI port runs on the board: game thread with the tasks'
+Subject: [PATCH 3/9] NAOMI port runs on the board: game thread with the tasks'
  stacks, faster sound board
 
 Found on the NAOMI 2 through the NetDIMM: KallistiOS stops a thread whose
@@ -2583,7 +2583,7 @@ index 76aa7fc..53ee148 100644
 From b397cb0c36115227ac32196a0657a98e71d8ab9e Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 14:17:46 +0100
-Subject: [PATCH 4/8] NAOMI stage 2: the frame on the PowerVR2 (scene of
+Subject: [PATCH 4/9] NAOMI stage 2: the frame on the PowerVR2 (scene of
  textured quads)
 
 runtime/src/video_scene.c (ORUNNERS_VIDEO_SCENE, included by video.c): the
@@ -5281,7 +5281,7 @@ index 0000000..a9c9433
 From f0efbfa88139a7ff648d7b03ed1cb5798d6fee77 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 14:26:40 +0100
-Subject: [PATCH 5/8] NAOMI: START doubles as the coin button (press = coin,
+Subject: [PATCH 5/9] NAOMI: START doubles as the coin button (press = coin,
  release = START)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -5351,7 +5351,7 @@ index 0b22016..988d5d2 100644
 From 48360bfed2d130f4eb35fe69e785bb0c08dfd8bb Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 15:47:28 +0100
-Subject: [PATCH 6/8] Scene: the sprites' shadow pen, the text's blending,
+Subject: [PATCH 6/9] Scene: the sprites' shadow pen, the text's blending,
  fades taken away exactly
 
 Shadows: the shadow pen's texels in an image of their own, drawn black at half
@@ -6014,7 +6014,7 @@ index a9c9433..f48d467 100644
 From f4dceb2f4a6d5a2beea83caeac5e604f5bcada10 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 15:56:26 +0100
-Subject: [PATCH 7/8] NAOMI stage 3: the MultiPCM's voices on the AICA
+Subject: [PATCH 7/9] NAOMI stage 3: the MultiPCM's voices on the AICA
 
 runtime/src/multipcm_aica.c works out the AICA's channel registers from the
 MultiPCM's voices (the same family: 8-bit samples, envelope, level and pan
@@ -6987,7 +6987,7 @@ index 5a89fb8..8d94013 100644
 From 676f1c23d8228b84b108a10c4508161ad9d23864 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 13 Nov 2026 15:57:14 +0100
-Subject: [PATCH 8/8] NAOMI: README for stages 2 and 3, live.py shows
+Subject: [PATCH 8/9] NAOMI: README for stages 2 and 3, live.py shows
  misaligned accesses and the AICA's writes
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -7152,6 +7152,535 @@ index 5324d25..e187da1 100644
              time.sleep(0.25)
  
  
+-- 
+2.43.0
+
+
+From 35d02070ea5afd5f46d4f27bf4c2a79418828014 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 16:02:06 +0100
+Subject: [PATCH 9/9] OutRunners NAOMI: the netboot image made on the player's
+ computer (ports/naomi/maker)
+
+The steps of build_naomi.sh after the build, in C: the makers' assets pack of
+the ROM set (rom_pack.c), made the NAOMI's as naomi_assets.py does, with the
+program in the archive as naomi_pack.py writes it, gzip in stored blocks.
+Builds for Windows with MinGW (only KERNEL32 and msvcrt).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016VRYRPP2crYKhAiGSakTbz
+---
+ CMakeLists.txt                 |   9 +
+ ports/naomi/README.md          |   9 +-
+ ports/naomi/maker/main.c       |  90 ++++++++
+ ports/naomi/maker/make_naomi.c | 361 +++++++++++++++++++++++++++++++++
+ 4 files changed, 468 insertions(+), 1 deletion(-)
+ create mode 100644 ports/naomi/maker/main.c
+ create mode 100644 ports/naomi/maker/make_naomi.c
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index f57534a..6a1984d 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -210,6 +210,15 @@ if(ORUNNERS_DECOMPILED AND ORUNNERS_SOUND_DECOMPILED)
+ 		target_link_libraries(orunners_anbernic_maker PRIVATE orunners_game_console orunners_sound orunners_extract)
+ 		set_target_properties(orunners_anbernic_maker PROPERTIES OUTPUT_NAME "OutRunners Anbernic")
+ 
++		# The NAOMI's netboot image, made on the player's computer (ports/naomi/maker): the game's NAOMI program
++		# (orunners_naomi-prog.bin, naomibintool's: ports/naomi/build_naomi.sh) with the assets of the player's
++		# ROM set in the NetDIMM's archive, as build_naomi.sh makes it. A command line
++		add_executable(orunners_naomi_maker ports/naomi/maker/main.c ports/naomi/maker/make_naomi.c
++			ports/switch/nsp/rom_pack.c)
++		target_include_directories(orunners_naomi_maker PRIVATE ports/switch/nsp)
++		target_link_libraries(orunners_naomi_maker PRIVATE orunners_game orunners_sound orunners_extract)
++		set_target_properties(orunners_naomi_maker PROPERTIES OUTPUT_NAME "OutRunners NAOMI")
++
+ 		# Android's APK, made on the player's computer (ports/android/apk): the game's Android build
+ 		# (android/outrunners-base.apk) with the assets pack of the player's ROM set (rom_pack.c), signed with
+ 		# the player's own key; its SHA-256 is OutRunners NSP's (crypto.c). A command line; with SDL2 also a
+diff --git a/ports/naomi/README.md b/ports/naomi/README.md
+index 2eda96e..d2c5e27 100644
+--- a/ports/naomi/README.md
++++ b/ports/naomi/README.md
+@@ -18,7 +18,14 @@ Work in progress for a Crazy Taxi upright with a NAOMI 2 and a 512 MB NetDIMM lo
+    (`/dimm/orunners.pcm`) in the AICA's RAM, its 28 voices on AICA channels whose registers the SH-4 works out from
+    the MultiPCM's; the left seat's sound on both speakers. The YM3438 only gives the sound program its timers:
+    OutRunners plays no FM note. Checked on a computer (`ORUNNERS_AICA_WAV`, below); **not yet heard on the board**.
+-4. **A converter for Windows**: drop `orunners.zip`, get the `.bin.gz`.
++4. **A converter for Windows**, *OutRunners NAOMI* (`maker/`): `orunners.zip` dropped on it (or beside it) and the
++   game's NAOMI program beside it (`orunners_naomi-prog.bin`, naomibintool's, which holds nothing of the ROM set),
++   out comes `orunners_naomi.bin.gz`, as `build_naomi.sh` makes it (the assets of `rom_pack.c`, the makers'; the
++   archive as `naomi_pack.py` writes it; gzip in stored blocks). Built for Windows with MinGW:
++   `cmake -B build-win -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc
++   -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DCMAKE_BUILD_TYPE=Release && make -C build-win orunners_naomi_maker`.
++   Checked (2026-11-13): its image holds the same program and samples as `build_naomi.sh`'s, and the same pack
++   but for the sprites' blocks (the makers' pack leaves out the runs of 0xFFFFFFFF, which read the same).
+ 
+ ## Build
+ 
+diff --git a/ports/naomi/maker/main.c b/ports/naomi/maker/main.c
+new file mode 100644
+index 0000000..659cc51
+--- /dev/null
++++ b/ports/naomi/maker/main.c
+@@ -0,0 +1,90 @@
++/**
++ *    Name:        main.c
++ *    Description: OutRunners NAOMI: the netboot image for a SEGA NAOMI's NetDIMM, made on the player's computer
++ *                 from the game's NAOMI program and the player's ROM set (make_naomi.c)
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    Usage: OutRunners NAOMI [--rom FILE] [--program FILE] [--out FILE]
++ *
++ *    By default the ROM set (orunners.zip) and the program (orunners_naomi-prog.bin) are beside the tool, and
++ *    the image (orunners_naomi.bin.gz) is written beside it. A file dropped on the tool is the ROM set; started
++ *    so, or with a double click, its console waits for Enter at the end.
++ */
++#include <stdio.h>
++#include <string.h>
++
++#define PATH_SIZE 1100
++
++const char *make_naomi(const char *rom, const char *program, const char *out, FILE *log);
++
++static int waits = 1;
++
++static int finish(int code)
++{
++	if (waits)
++	{
++		printf("\nPress Enter to close.\n");
++		(void)getchar();
++	}
++	return code;
++}
++
++/* The folder of a path, with its separator: "" for a bare name */
++static void folder_of(const char *path, char *folder, size_t size)
++{
++	const char *slash = strrchr(path, '/'), *backslash = strrchr(path, '\\');
++	const char *end = slash > backslash ? slash : backslash;
++	const size_t length = end ? (size_t)(end - path) + 1 : 0;
++
++	snprintf(folder, size, "%.*s", (int)(length < size ? length : size - 1), path);
++}
++
++int main(int argc, char **argv)
++{
++	char here[PATH_SIZE - 64], rom[PATH_SIZE] = "", program[PATH_SIZE] = "", out[PATH_SIZE] = "";
++	const char *problem;
++
++	folder_of(argv[0], here, sizeof(here));
++	for (int at = 1; at < argc; at++)
++	{
++		char *target = NULL;
++
++		if (strncmp(argv[at], "--", 2) != 0)
++		{
++			snprintf(rom, sizeof(rom), "%s", argv[at]);    /* (a file dropped on the tool: the ROM set) */
++			continue;
++		}
++		waits = 0;
++		if (strcmp(argv[at], "--rom") == 0)
++			target = rom;
++		else if (strcmp(argv[at], "--program") == 0)
++			target = program;
++		else if (strcmp(argv[at], "--out") == 0)
++			target = out;
++		if (!target || at + 1 >= argc)
++		{
++			fprintf(stderr, "Usage: OutRunners NAOMI [--rom FILE] [--program FILE] [--out FILE]\n"
++				"  --rom      the arcade ROM set (orunners.zip, MAME's; by default beside it)\n"
++				"  --program  the game's NAOMI program (orunners_naomi-prog.bin; by default beside it)\n"
++				"  --out      the netboot image (by default orunners_naomi.bin.gz beside it)\n");
++			return 2;
++		}
++		snprintf(target, PATH_SIZE, "%s", argv[++at]);
++	}
++	if (!rom[0])
++		snprintf(rom, sizeof(rom), "%sorunners.zip", here);
++	if (!program[0])
++		snprintf(program, sizeof(program), "%sorunners_naomi-prog.bin", here);
++	if (!out[0])
++		snprintf(out, sizeof(out), "%sorunners_naomi.bin.gz", here);
++	printf("OutRunners NAOMI: the netboot image for a NAOMI's NetDIMM, with the assets of your ROM set\n\n");
++	if ((problem = make_naomi(rom, program, out, stdout)) != NULL)
++	{
++		fprintf(stderr, "Not made: %s\n", problem);
++		return finish(1);
++	}
++	printf("\nPut it on your netbooter (a WiPi's /boot/roms, say) and send it to the NetDIMM. It holds your ROM\n"
++		"set's assets: keep it to yourself.\n");
++	return finish(0);
++}
+diff --git a/ports/naomi/maker/make_naomi.c b/ports/naomi/maker/make_naomi.c
+new file mode 100644
+index 0000000..54a93df
+--- /dev/null
++++ b/ports/naomi/maker/make_naomi.c
+@@ -0,0 +1,361 @@
++/**
++ *    Name:        make_naomi.c
++ *    Description: OutRunners NAOMI's work: the netboot image for a NAOMI's NetDIMM out of the game's NAOMI
++ *                 program and the player's ROM set (ports/naomi/maker/main.c)
++ *    Created:     13-11-2026
++ *
++ *    license:BSD-3-Clause
++ *    The steps of ports/naomi/build_naomi.sh after the build, in C, so that a player needs no tools: the assets
++ *    pack of the ROM set (rom_pack.c, as the computer's first run makes it), made the NAOMI's as naomi_assets.py
++ *    makes it (the tiles' pens two to a byte, the MultiPCM's samples apart as the chip's 4 MB), the program
++ *    (orunners_naomi-prog.bin, naomibintool's, which holds nothing of the ROM set) with the archive /dimm after
++ *    it as naomi_pack.py writes it, gzip'd (stored blocks: no compression, any gunzip and the netbooters take
++ *    it). The image is made from the player's ROM set: never share it.
++ */
++#include "rom_pack.h"
++
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#define TILE_COUNT        0x8000
++#define PCM_HEADERS_SIZE  (0x200 * 12)
++#define PCM_SIZE          0x400000
++#define NAME_MAX_BYTES    56
++#define ARCHIVE_ALIGN     0x10000u
++
++typedef struct
++{
++	uint8_t *data;
++	size_t size, room;
++	int failed;
++} buffer;
++
++static void put(buffer *out, const void *bytes, size_t size)
++{
++	if (out->failed)
++		return;
++	if (out->size + size > out->room)
++	{
++		size_t room = out->room ? out->room : 1u << 20;
++		uint8_t *grown;
++
++		while (room < out->size + size)
++			room *= 2;
++		if (!(grown = (uint8_t *)realloc(out->data, room)))
++		{
++			out->failed = 1;
++			return;
++		}
++		out->data = grown;
++		out->room = room;
++	}
++	memcpy(out->data + out->size, bytes, size);
++	out->size += size;
++}
++
++static void put32(buffer *out, uint32_t value)
++{
++	const uint8_t bytes[4] = { (uint8_t)value, (uint8_t)(value >> 8), (uint8_t)(value >> 16), (uint8_t)(value >> 24) };
++
++	put(out, bytes, 4);
++}
++
++static void pad(buffer *out, size_t multiple)
++{
++	static const uint8_t zeros[64];
++
++	while (out->size % multiple)
++		put(out, zeros, multiple - out->size % multiple > sizeof(zeros) ? sizeof(zeros) : multiple - out->size % multiple);
++}
++
++/* The pack, read as naomi_assets.py's Reader: 32-bit little-endian words, raw blocks padded to 4 */
++typedef struct
++{
++	const uint8_t *data;
++	size_t size, at;
++	int short_read;
++} reader;
++
++static uint32_t take32(reader *in)
++{
++	uint32_t value;
++
++	if (in->at + 4 > in->size)
++	{
++		in->short_read = 1;
++		return 0;
++	}
++	value = (uint32_t)in->data[in->at] | (uint32_t)in->data[in->at + 1] << 8 | (uint32_t)in->data[in->at + 2] << 16
++		| (uint32_t)in->data[in->at + 3] << 24;
++	in->at += 4;
++	return value;
++}
++
++static const uint8_t *take(reader *in, size_t size)
++{
++	const uint8_t *at = in->data + in->at;
++
++	if (in->at + size > in->size)
++	{
++		in->short_read = 1;
++		return NULL;
++	}
++	in->at += size + ((4 - size % 4) % 4);
++	if (in->at > in->size)
++		in->at = in->size;
++	return at;
++}
++
++static void put_raw(buffer *out, const void *bytes, size_t size)
++{
++	put(out, bytes, size);
++	pad(out, 4);
++}
++
++/* naomi_assets.py: the NAOMI's pack ("ORAN") and the MultiPCM's 4 MB, from the pack. NULL or what failed */
++static const char *naomi_assets(const uint8_t *pack, size_t size, buffer *out, uint8_t *pcm)
++{
++	reader in = { pack, size, 0, 0 };
++	const uint8_t *magic = take(&in, 4), *present, *headers;
++
++	if (!magic || memcmp(magic, "ORAP", 4) != 0)
++		return "the assets pack is not one";
++	put_raw(out, "ORAN", 4);
++	put32(out, take32(&in));    /* the pack's version */
++	put32(out, take32(&in));    /* the tables' version */
++	for (int region = 0; region < 2; region++)    /* the V70's pieces, then the sound program's */
++	{
++		const uint32_t count = take32(&in);
++
++		put32(out, count);
++		for (uint32_t piece = 0; piece < count && !in.short_read; piece++)
++		{
++			const uint32_t address = take32(&in), length = take32(&in);
++			const uint8_t *bytes = take(&in, length);
++
++			put32(out, address);
++			put32(out, length);
++			if (bytes)
++				put_raw(out, bytes, length);
++		}
++	}
++	if (!(present = take(&in, TILE_COUNT / 8)))
++		return "the assets pack ends early";
++	put_raw(out, present, TILE_COUNT / 8);
++	for (int tile = 0; tile < TILE_COUNT; tile++)
++		if ((present[tile / 8] >> (tile % 8)) & 1)
++		{
++			const uint8_t *pens = take(&in, 256);
++			uint8_t packed[128];
++
++			if (!pens)
++				return "the assets pack ends early";
++			for (int index = 0; index < 128; index++)
++				packed[index] = (uint8_t)((pens[2 * index] & 15) | (pens[2 * index + 1] & 15) << 4);
++			put_raw(out, packed, sizeof(packed));
++		}
++	{
++		const uint32_t blocks = take32(&in);
++
++		put32(out, blocks);
++		for (uint32_t block = 0; block < blocks && !in.short_read; block++)
++		{
++			const uint32_t first = take32(&in), count = take32(&in);
++			const uint8_t *words = take(&in, (size_t)count * 4);
++
++			put32(out, first);
++			put32(out, count);
++			if (words)
++				put_raw(out, words, (size_t)count * 4);
++		}
++	}
++	if (!(headers = take(&in, PCM_HEADERS_SIZE)))
++		return "the assets pack ends early";
++	put_raw(out, headers, PCM_HEADERS_SIZE);
++	put32(out, 0);    /* no sample blocks: they go to the AICA */
++	memset(pcm, 0xff, PCM_SIZE);
++	memcpy(pcm, headers, PCM_HEADERS_SIZE);
++	{
++		const uint32_t blocks = take32(&in);
++
++		for (uint32_t block = 0; block < blocks && !in.short_read; block++)
++		{
++			const uint32_t offset = take32(&in), length = take32(&in);
++			const uint8_t *bytes = take(&in, length);
++
++			if (bytes && offset <= PCM_SIZE && length <= PCM_SIZE - offset)
++				memcpy(pcm + offset, bytes, length);
++		}
++	}
++	if (in.short_read)
++		return "the assets pack ends early";
++	return out->failed ? "not enough memory" : NULL;
++}
++
++static uint8_t *read_file(const char *path, size_t *size)
++{
++	FILE *file = fopen(path, "rb");
++	uint8_t *data = NULL;
++	long length;
++
++	if (!file)
++		return NULL;
++	if (fseek(file, 0, SEEK_END) == 0 && (length = ftell(file)) > 0 && fseek(file, 0, SEEK_SET) == 0
++		&& (data = (uint8_t *)malloc((size_t)length)) != NULL)
++	{
++		if (fread(data, 1, (size_t)length, file) != (size_t)length)
++		{
++			free(data);
++			data = NULL;
++		}
++		else
++			*size = (size_t)length;
++	}
++	fclose(file);
++	return data;
++}
++
++static uint32_t crc32_of(uint32_t crc, const uint8_t *data, size_t size)
++{
++	static uint32_t table[256];
++
++	if (!table[1])
++		for (uint32_t index = 0; index < 256; index++)
++		{
++			uint32_t value = index;
++
++			for (int bit = 0; bit < 8; bit++)
++				value = (value & 1) ? 0xedb88320u ^ (value >> 1) : value >> 1;
++			table[index] = value;
++		}
++	crc = ~crc;
++	for (size_t index = 0; index < size; index++)
++		crc = table[(crc ^ data[index]) & 0xff] ^ (crc >> 8);
++	return ~crc;
++}
++
++/* The image as gzip with stored deflate blocks (65535 bytes each) */
++static int write_gzip(const char *path, const uint8_t *data, size_t size)
++{
++	static const uint8_t header[10] = { 0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 0, 255 };
++	FILE *file = fopen(path, "wb");
++	size_t at = 0;
++	int ok;
++
++	if (!file)
++		return 0;
++	ok = fwrite(header, 1, sizeof(header), file) == sizeof(header);
++	do
++	{
++		const size_t length = size - at > 65535 ? 65535 : size - at;
++		const uint8_t block[5] = { (uint8_t)(at + length == size), (uint8_t)length, (uint8_t)(length >> 8),
++			(uint8_t)~length, (uint8_t)(~length >> 8) };
++
++		ok = ok && fwrite(block, 1, 5, file) == 5 && fwrite(data + at, 1, length, file) == length;
++		at += length;
++	} while (at < size && ok);
++	{
++		const uint32_t crc = crc32_of(0, data, size);
++		const uint8_t trailer[8] = { (uint8_t)crc, (uint8_t)(crc >> 8), (uint8_t)(crc >> 16), (uint8_t)(crc >> 24),
++			(uint8_t)size, (uint8_t)(size >> 8), (uint8_t)(size >> 16), (uint8_t)(size >> 24) };
++
++		ok = ok && fwrite(trailer, 1, 8, file) == 8;
++	}
++	return fclose(file) == 0 && ok;
++}
++
++/* naomi_pack.py: the archive /dimm (its files by name) after the program segment, at 64 KB */
++static const char *with_archive(const uint8_t *program, size_t program_size, const char *const *names,
++	const buffer *files, int count, buffer *image)
++{
++	uint32_t segment_offset, segment_length, base, offset;
++	const size_t header_size = 16 + (size_t)count * (NAME_MAX_BYTES + 8);
++
++	if (program_size < 0x370 || memcmp(program, "NAOMI", 5) != 0)
++		return "the program is not a NAOMI image (orunners_naomi-prog.bin, naomibintool's)";
++	memcpy(&segment_offset, program + 0x360, 4);
++	memcpy(&segment_length, program + 0x368, 4);
++	base = (segment_offset + segment_length + ARCHIVE_ALIGN - 1) & ~(ARCHIVE_ALIGN - 1);
++	if (program_size > base)
++		return "the program has data after its segment: not naomibintool's plain image";
++	put(image, program, program_size);
++	while (image->size < base && !image->failed)
++		put(image, "", 1);
++	put(image, "CBDIMMFS", 8);
++	put32(image, 1);
++	put32(image, (uint32_t)count);
++	offset = (uint32_t)((header_size + 31) & ~(size_t)31);
++	for (int file = 0; file < count; file++)
++	{
++		char name[NAME_MAX_BYTES];
++
++		memset(name, 0, sizeof(name));
++		strncpy(name, names[file], sizeof(name) - 1);
++		put(image, name, sizeof(name));
++		put32(image, offset);
++		put32(image, (uint32_t)files[file].size);
++		offset += (uint32_t)((files[file].size + 31) & ~(size_t)31);
++	}
++	while ((image->size - base) % 32 && !image->failed)
++		put(image, "", 1);
++	for (int file = 0; file < count; file++)
++	{
++		put(image, files[file].data, files[file].size);
++		while ((image->size - base) % 32 && !image->failed)
++			put(image, "", 1);
++	}
++	return image->failed ? "not enough memory" : NULL;
++}
++
++const char *make_naomi(const char *rom, const char *program_path, const char *out, FILE *log)
++{
++	/* (the archive's files in naomi_pack.py's order: by name) */
++	static const char *const names[2] = { "orunners.pcm", "orunners_naomi.assets" };
++	char pack_path[1200];
++	uint8_t *pack = NULL, *program = NULL;
++	size_t pack_size = 0, program_size = 0;
++	buffer files[2], image;
++	const char *problem;
++
++	memset(files, 0, sizeof(files));
++	memset(&image, 0, sizeof(image));
++	if (!(program = read_file(program_path, &program_size)))
++		return "the program cannot be read (orunners_naomi-prog.bin beside the tool)";
++	snprintf(pack_path, sizeof(pack_path), "%s.assets-making", out);
++	if (log)
++		fprintf(log, "ROM set   %s\n", rom);
++	if ((problem = rom_pack_make(rom, pack_path)) != NULL)
++	{
++		remove(pack_path);
++		free(program);
++		return problem;
++	}
++	pack = read_file(pack_path, &pack_size);
++	remove(pack_path);
++	if (!pack)
++	{
++		free(program);
++		return "the assets pack cannot be read back";
++	}
++	files[0].data = (uint8_t *)malloc(PCM_SIZE);
++	files[0].size = PCM_SIZE;
++	if (!files[0].data)
++		problem = "not enough memory";
++	else
++		problem = naomi_assets(pack, pack_size, &files[1], files[0].data);
++	free(pack);
++	if (!problem)
++		problem = with_archive(program, program_size, names, files, 2, &image);
++	if (!problem && log)
++		fprintf(log, "program   %s (%lu bytes)\nimage     %s (%.1f MB)\n", program_path, (unsigned long)program_size,
++			out, (double)image.size / (1024.0 * 1024.0));
++	if (!problem && !write_gzip(out, image.data, image.size))
++		problem = "the image cannot be written";
++	free(program);
++	free(files[0].data);
++	free(files[1].data);
++	free(image.data);
++	return problem;
++}
 -- 
 2.43.0
 

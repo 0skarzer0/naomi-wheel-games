@@ -79,6 +79,11 @@ Hecho después, comprobado solo en PC:
 - Con todo eso, píxeles distintos de `video.c` en el guion de carrera: **del 7,6 % al 0,68 %**.
 - **Fase 3, sonido**: las 28 voces del MultiPCM en canales del AICA (abajo).
 - **START hace también de moneda** (al pulsar mete una moneda, al soltar pulsa START).
+- **Fase 4, el conversor para Windows** *OutRunners NAOMI* (`ports/naomi/maker/`, objetivo `orunners_naomi_maker`,
+  compilado con MinGW): `orunners.zip` + `orunners_naomi-prog.bin` (el programa de naomibintool, sin nada de la ROM)
+  → `orunners_naomi.bin.gz`. Mismo programa y samples que `build_naomi.sh`; el pack solo difiere en los bloques de
+  sprites (el de los makers omite las tiradas de 0xFFFFFFFF, que se leen igual). Se le dio al usuario un zip con el
+  .exe, el programa de la imagen `or_155606` y un LEEME (no va en el repo: el programa se rehace con cada cambio).
 
 Arreglos de la fase 2 que conviene recordar:
 - **Accesos desalineados:** el código del V60 lee palabras en direcciones impares (scenery.c); el SH-4 da error de
