@@ -67,6 +67,12 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
   (`dc2naomi.exe` / `dc2naomict.exe`, v0.2, sin release todavía). F355 y 18 Wheeler ya funcionan en placa (con VMU). Aparcados: KOF99, Last Blade 2.
   Siguiente: reconvertir con VMU los juegos hechos sin ella.
   Todo el detalle en el [HANDOFF de dc2naomi](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md).
+- **OutRunners** (2026-11-13) — **port empezado**, a partir de [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port).
+  Medido con el ROM del propietario: la lógica del juego y el programa del Z80 caben de sobra en el SH-4. El vídeo
+  tal cual (mezcla por píxel al estilo de MAME, ~21 M instrucciones x86 por fotograma) no cabe: hay que dibujar con
+  la PowerVR2. OutRunners usa poco del chip: capas TEXT, NBG0 y NBG2, ~56 sprites por fotograma, sin sombras ni
+  ventanas. El FM no toca notas, así que el sonido se reduce al MultiPCM, que pasará al AICA.
+  Estudio, mediciones y plan por fases: [docs/outrunners.md](docs/outrunners.md).
 
 ---
 
@@ -238,7 +244,7 @@ si se ajusta la sensibilidad.
 | Proyecto | Estado | ¿Viable en NAOMI? | Comentario |
 |---|---|---|---|
 | **Cannonball** (OutRun) | Completo | ✅ Hecho | Motor reescrito en C++ |
-| **OutRunners decomp** (cheviman) | ~79 % de funciones limpias; System 32 modelado en C; 16 escenarios iguales a MAME | 🟡 Prometedor | C + SDL2; cuando esté completo, portable a KOS |
+| **OutRunners port** (cheviman) | Port nativo en C sobre su descompilación; 16 escenarios iguales a MAME | 🟡 En curso | Medido (2026-11-13): lógica y Z80 caben; vídeo a reescribir para PVR2, sonido MultiPCM → AICA. [docs/outrunners.md](docs/outrunners.md) |
 | **Daytona USA static recomp** | Arranca | 🟠 ~27 fps | Ya en rama `naomi` |
 | **Daytona USA nativo** (`platform/dreamcast-native`) | Completo en Dreamcast (60 fps) | ✅ 60 fps en NAOMI 2 | Rama `naomi-native`; ROM `daytona93` + programa de sonido del set padre `daytona` |
 | **Scud Race** (wanszai) | Port desde decompilación, solo Windows/Xbox | 🔴 de momento | Repositorio muy reciente; sin licencia clara |
@@ -290,7 +296,7 @@ Qué cambió SEGA entre el Crazy Taxi de Dreamcast y el de NAOMI: [docs/crazy-ta
 4. **FBA 2012** para la familia Sega (Turbo OutRun, Super Monaco GP) y **mame2003** para
    Pole Position.
 5. **Cargador Dreamcast → NAOMI** para recopilatorios y ports (Wipeout, Mario Kart 64).
-6. Seguir **OutRunners decomp**; probar en placa el **Daytona nativo** (rama `naomi-native`) y, si funciona, ofrecer `NATIVE_NAOMI` al proyecto original.
+6. **Portar OutRunners** ([docs/outrunners.md](docs/outrunners.md): arranque y medida en placa, render PVR2, sonido en el AICA); probar en placa el **Daytona nativo** (rama `naomi-native`) y, si funciona, ofrecer `NATIVE_NAOMI` al proyecto original.
 
 ## 8.1 Parches de controles
 
@@ -353,7 +359,7 @@ directa o como inspiración o ayuda indirecta. Si falta alguien, abrid una issue
   [agradecimientos](https://github.com/0skarzer0/dc2naomi#agradecimientos).
 - **gyrovorbis** ([SH4ZAM](https://github.com/gyrovorbis/sh4zam)) y **la comunidad de vgmrips**, cuyo pack de música de
   Daytona USA (Sega Model 2) es lo que suena en el port.
-- **Los autores de los proyectos de la sección 6** que sirven de referencia o futura base: cheviman (OutRunners decomp),
+- **Los autores de los proyectos de la sección 6** que sirven de referencia o futura base: cheviman (OutRunners port y su descompilación; Aaron Giles, por ymfm, en el que se basa su YM3438),
   wanszai (Scud Race, Ridge Racer Collection, Sega Rally), namco22-decompile, la decompilación de Ridge Racer (PSX), el
   port de Wipeout a Dreamcast, mk64-dc, Wave Race 64 DC y la decompilación de Sonic R.
 - **Claude** (Anthropic), a través de Claude Code: el código y la documentación de los ports de este proyecto se han
