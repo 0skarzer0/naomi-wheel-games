@@ -7,7 +7,7 @@ respondan igual en todos los juegos.
 
 | Elemento | Detalle |
 |---|---|
-| Placa | NAOMI 2 con multibios (BIOS de exportación EPR-23608B; no se sube al repositorio) |
+| Placa | NAOMI 2 con multibios (BIOS de exportación EPR-23608B; no se sube al repositorio). **Versión de la multibios sin confirmar**: las antiguas cuelgan 18 Wheeler e Initial D en el attract (ver [pi60-juegos.md](pi60-juegos.md)); la v2.01 (rev C/H) corrige al menos algunos cuelgues |
 | Memoria de juego | NetDIMM 512 MB |
 | Carga | Netboot desde Raspberry Pi 3 con WiPi Netbooter: ficheros `.bin.gz` + una línea en `romsinfo.csv` |
 | Monitor | 31 kHz (640x480), no trifrecuencia |
@@ -40,6 +40,20 @@ Notas:
 | Cannonball | Menú principal | START mantenido + palanca atrás = cambiar vista; START actúa al soltarlo |
 
 Pendiente: decidir un estándar común.
+
+## Ajustes por defecto de los juegos (free play, attract mudo)
+
+La cabecera NAOMI de cada imagen lleva, de `0x1E0` a `0x25F`, los valores por defecto del menú de sistema (16 bytes por
+región): `+0` = 1 aplica, `+1` bit 1 = attract sin sonido, `+3` = 27 es FREE PLAY. La BIOS los aplica solo cuando inicializa
+los ajustes de un juego distinto del anterior. Herramienta: `tools/system_defaults.py` (una imagen) y
+`tools/sysdef_all.py` (todas las de la Pi) en [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches).
+
+## Lector de tarjetas
+
+Los juegos que guardan en tarjeta magnética (Initial D) usan un lector Sanwa CRP-1231BR-10 en el puerto serie CN8. En
+vez de cable y adaptador, [naomi-ct-patches/card-reader](https://github.com/0skarzer0/naomi-ct-patches/tree/main/card-reader)
+añade a la imagen un lector virtual en software; la tarjeta es un fichero en la Pi. Con el parche de controles, en
+Initial D un toque corto de START hace de «vista» (el SÍ de comprar tarjeta) y mantenerlo pulsado es START (el NO).
 
 ## Trampas del hardware real (no las reproduce Flycast)
 

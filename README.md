@@ -86,7 +86,9 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
   sonido en el AICA y un conversor para Windows hechos y sin probar en placa ([outrunners/HANDOFF.md](outrunners/HANDOFF.md)).
 - **Subidos, sin probar en placa:** una docena de juegos de Dreamcast convertidos con dc2naomi (Test Drive 6, Star
   Wars Racer, Metropolis Street Racer, SF Rush 2049, Mario Kart 64, la demo de OutRun 2006 de ArkRetro…) y los
-  parches de 18 Wheeler e Initial D (con lector de tarjetas virtual).
+  parches de 18 Wheeler e Initial D (con lector de tarjetas virtual, ya arrancando en placa; falta ver que da y graba la
+  tarjeta). Los dos cuelgan en el attract con la BIOS multirregión de la placa aunque no estén parcheados ([detalle](docs/pi60-juegos.md)).
+- **Free play y attract sin sonido** puestos en la cabecera de 49 de las 50 imágenes de la Raspberry (2026-11-13).
 - **Lentos en placa:** Hang-On y Konami GT (MAME4ALL), ~46 fps y cuelgues.
 - **Estudio:** model1-naomi (¿puede el SH-4 emular el V60 de Virtua Racing?), nada jugable todavía.
 
@@ -94,6 +96,8 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
 
 1. **OutRunners:** probar en placa la imagen con sonido, sombras y fundidos; luego el conversor para Windows.
 2. **Probar en placa** los juegos de Dreamcast convertidos que faltan y los parches de 18 Wheeler e Initial D.
+   Antes, **actualizar la BIOS multirregión** (v2.01, rev C/H) o confirmar su versión: sin eso 18 Wheeler e Initial D se
+   cuelgan en el attract.
 3. **Estándar de controles común** para todos los juegos del mueble (moneda, START, vista, menú): hay una
    [propuesta](https://github.com/0skarzer0/naomi-kit/blob/main/docs/controls.md); hoy cada port lo
    resuelve a su manera (OutRunners: START = moneda; MAME4ALL: freno + START = crédito; Cannonball: freno + START = menú).

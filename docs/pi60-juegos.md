@@ -22,10 +22,11 @@ port propio, `dc-` juego de Dreamcast convertido con dc2naomi (`_dc2naomict` = m
 | `n1-tokyo_bus_tour-[840-0045]` | Tokyo Bus Guide | — |
 | `n1-wave_runner_gp-[840-0064]` | Wave Runner GP | — (manillar analógico: debería ir) |
 | `n2-club_kart_european_session-[840-0062]` | Club Kart European Session | ✅ |
-| `n2-the_king_of_route66-[840-0087]` | The King of Route 66 | ✅ |
+| `n2-the_king_of_route66-[840-0087]` | The King of Route 66 | ⚠️ funcionaba, pero el 2026-11-13 el fichero no pasa `pigz -t` (gzip incompleto): hay que volver a copiarlo desde un volcado bueno |
 | `n2-wild_riders-[840-0046]` | Wild Riders | ✅ |
-| `n2-initial_d_export_rev.a`, `_2_export`, `_3_export` | Initial D Arcade Stage 1, 2 y 3 (Export) | ⚠️ piden lector de tarjetas |
-| `n2-initiald_exp_reva_ct` | Initial D Rev A con parche de cambio y lector de tarjetas virtual | 🧪 ([naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches/tree/main/initial-d)) |
+| `n2-initial_d_export_rev.a`, `_2_export`, `_3_export` | Initial D Arcade Stage 1, 2 y 3 (Export) | ⚠️ piden lector de tarjetas; la Rev A se cuelga en el attract después de jugar una partida (ver nota de abajo) |
+| `n2-initiald_exp_reva_ct` | Initial D Rev A con parche de cambio y CARD R/W apagado por defecto | 🧪 ([naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches/tree/main/initial-d)) |
+| `initiald_exp_reva_vcard` (sin fila en el CSV de la web hasta que el usuario la añada) | Initial D Rev A con parche de cambio, **lector de tarjetas virtual** y free play | 🧪 arranca en placa y habla con el juego sin errores (36-56 paquetes, 0 NAK); falta comprobar que da y graba la tarjeta ([card-reader](https://github.com/0skarzer0/naomi-ct-patches/tree/main/card-reader)) |
 | `aw-faster_than_speed_AW10` | Faster Than Speed | ✅ |
 | `aw-maximum_speed_AW09` | Maximum Speed | ✅ |
 
@@ -73,6 +74,21 @@ port propio, `dc-` juego de Dreamcast convertido con dc2naomi (`_dc2naomict` = m
 
 En `/boot/roms/` hay además dos ficheros sin fila en el CSV (no salen en el menú): `daytona_native_naomi.bin.gz` y
 `initiald_exp_reva_vcard.bin.gz`, versiones de prueba (el Daytona nativo, en una compilación distinta de la del menú).
+
+## Free play y attract sin sonido en todas las imágenes (2026-11-13)
+
+Con [`tools/sysdef_all.py`](https://github.com/0skarzer0/naomi-ct-patches/blob/main/tools/sysdef_all.py) se cambiaron en
+la cabecera de **49 de las 50 imágenes** los ajustes por defecto de las 8 regiones (free play, attract mudo); la 50
+(King of Route 66) está corrupta. Los originales están en `/boot/roms_orig/` de la Pi. La BIOS aplica esos valores solo
+al cambiar de juego, y algunos juegos tienen además su propio ajuste de sonido en GAME ASSIGNMENTS. Las imágenes
+nuevas hay que pasarlas también por el script.
+
+## Initial D: se cuelga en el attract tras una partida (2026-11-12)
+
+Tras una partida, en el attract (modo de repetición), el juego se cuelga igual con el volcado **original sin parchear**,
+con el parche de controles y con el lector virtual, por lo que no es de los parches. Coincide con lo publicado en
+arcade-projects sobre la BIOS multirregión antigua en NAOMI 2 (Initial D 3 y Spawn; lo arregla la v2.01, rev C/H). Falta
+comprobar la versión de BIOS de la placa (menú de test, SYSTEM INFORMATION). Mismo problema de fondo que 18 Wheeler.
 
 El detalle de cada conversión (parches, tamaños, partidas guardadas, pruebas) está en el
 [HANDOFF de dc2naomi](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md).

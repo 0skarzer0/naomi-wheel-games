@@ -4,6 +4,14 @@ Estados y pendientes fechados que ya no describen el presente; se guardan porque
 actual está en el [README](../README.md) y en [pi60-juegos.md](pi60-juegos.md); el detalle de cada port, en su
 `HANDOFF.md`.
 
+## 2026-11-12 y 13: lector de tarjetas virtual y free play
+
+- Primer lector de tarjetas virtual (Initial D Rev A): arranca en placa y el juego habla con él sin errores. Falta
+  comprobar compra y grabado de tarjeta. Detalle en el [HANDOFF de naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md).
+- Initial D se cuelga en el attract tras una partida también sin parchear: BIOS multirregión (ver [pi60-juegos.md](pi60-juegos.md)).
+- Free play y attract mudo en 49 de las 50 imágenes de la Pi; King of Route 66 corrupto.
+- Acceso a la Pi desde la nube: shell del PC del usuario (en la misma red) y SSH.
+
 ## 2026-11-13 (tarde): reorganización
 
 - Nace [naomi-kit](https://github.com/0skarzer0/naomi-kit) y OutRunners pasa a usarlo; la recompilación de Daytona para
