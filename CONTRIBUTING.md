@@ -15,8 +15,8 @@
 
 ## Añadir un juego nuevo
 
-1. Mira [docs/juegos.md](docs/juegos.md) (catálogo y dificultad) y [docs/hardware.md](docs/hardware.md) (controles
-   y JVS del mueble).
+1. Mira [docs/juegos.md](docs/juegos.md) (catálogo y dificultad) y [crazytaxi_cabinet_info](https://github.com/0skarzer0/crazytaxi_cabinet_info)
+   (controles, JVS y trampas del mueble).
 2. Si es un port nativo, empieza por [naomi-kit](https://github.com/0skarzer0/naomi-kit): arranque, controles,
    ficheros de la NetDIMM, datos en vivo y scripts de la Pi ya están hechos. Sigue su
    [controles estándar](https://github.com/0skarzer0/naomi-kit/blob/main/docs/controls.md).
@@ -24,7 +24,7 @@
 4. Aquí: una fila en la tabla de repos del [README](README.md), el estado en
    [docs/pi60-juegos.md](docs/pi60-juegos.md) y, cuando cambie, lo antiguo a [docs/historial.md](docs/historial.md)
    con su fecha.
-5. Mide en la placa (fps con `naomi-kit/tools/pi/live.py`) antes de dar un juego por funcionando.
+5. Mide en la placa (fps con `pi/live.py` de [naomi-pi-tools](https://github.com/0skarzer0/naomi-pi-tools), que lee el bloque de cualquier proyecto) antes de dar un juego por funcionando.
 
 ## Estilo
 
@@ -52,8 +52,8 @@ su fecha y su fuente.
 
 #### Adding a new game
 
-1. Look at [docs/juegos.md](docs/juegos.md) (catalogue and difficulty) and [docs/hardware.md](docs/hardware.md) (the
-   cabinet's controls and JVS values).
+1. Look at [docs/juegos.md](docs/juegos.md) (catalogue and difficulty) and [crazytaxi_cabinet_info](https://github.com/0skarzer0/crazytaxi_cabinet_info)
+   (the cabinet's controls, JVS values and traps).
 2. If it is a native port, start from [naomi-kit](https://github.com/0skarzer0/naomi-kit): boot, controls, NetDIMM
    files, live data and Raspberry Pi scripts are already done. Follow its
    [standard controls](https://github.com/0skarzer0/naomi-kit/blob/main/docs/controls.md).
@@ -61,7 +61,7 @@ su fecha y su fuente.
 4. Here: a row in the repos table of the [README](README.md), the status in
    [docs/pi60-juegos.md](docs/pi60-juegos.md) and, when it changes, the old state to
    [docs/historial.md](docs/historial.md) with its date.
-5. Measure on the board (fps with `naomi-kit/tools/pi/live.py`) before calling a game working.
+5. Measure on the board (fps with `pi/live.py` from [naomi-pi-tools](https://github.com/0skarzer0/naomi-pi-tools), which reads any project's block) before calling a game working.
 
 #### Style
 

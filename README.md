@@ -33,22 +33,32 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 
 ```mermaid
 flowchart LR
-    kit["naomi-kit<br/>arranque, controles, NetDIMM,<br/>live, scripts de la Pi"]
-    tools["naomi-pi-tools<br/>scripts Pi y PC"]
-    cab["crazytaxi_cabinet_info<br/>documentación del mueble"]
-    kit --> day["Daytona USA nativo<br/>(daytona-arcade-recomp, naomi-native)"]
-    kit --> orun["OutRunners<br/>(outrunners-port, naomi)"]
-    kit -.-> next["próximos ports"]
-    cb["Cannonball (OutRun)"] --- m4["MAME4ALL"] --- dc2["dc2naomi<br/>juegos de Dreamcast"]
-    patches["naomi-ct-patches<br/>controles de juegos originales"]
-    wheel(["naomi-wheel-games<br/>(este repo): índice, estado, estudios"]) -.-> kit
-    wheel -.-> cb
-    wheel -.-> dc2
-    wheel -.-> patches
+    wheel(["naomi-wheel-games<br/>(este repo): índice y estado"])
+    subgraph juegos["Juegos y ports"]
+        kit["naomi-kit<br/>librería de los ports nativos"]
+        kit --> day["Daytona USA nativo<br/>(daytona-arcade-recomp, naomi-native)"]
+        kit --> orun["OutRunners<br/>(outrunners-port, naomi)"]
+        kit -.-> next["próximos ports"]
+        cb["Cannonball (OutRun)<br/>(dreamcast-cannonball, naomi)"]
+        m4["mame4all-naomi<br/>Super Sprint, Hang-On…"]
+        dc2["dc2naomi<br/>juegos de Dreamcast y homebrew<br/>de KallistiOS (Mario Kart 64)"]
+        patches["naomi-ct-patches<br/>controles de juegos originales"]
+        m1["model1-naomi<br/>Virtua Racing (estudio)"]
+    end
+    subgraph comun["Común a todos"]
+        tools["naomi-pi-tools<br/>enviar, live.py, romsinfo.csv"]
+        cab["crazytaxi_cabinet_info<br/>el mueble: JVS y trampas"]
+    end
+    wheel -.-> juegos
+    wheel -.-> comun
+    tools -.->|"envía y lee en directo"| juegos
+    cab -.->|"valores y trampas"| juegos
 ```
 
 Daytona nativo y OutRunners son los que están o estarán sobre `naomi-kit` (OutRunners ya lo usa; Daytona nativo
-sigue con su copia del código, pendiente de pasarlo). Los demás son proyectos independientes.
+sigue con su copia del código, pendiente de pasarlo). Los demás son proyectos independientes. Lo común a todos:
+`naomi-pi-tools` (los scripts de la Raspberry, con **un solo lector `live.py`** para el bloque de cualquier proyecto)
+y `crazytaxi_cabinet_info` (la **única fuente** de los datos del mueble).
 
 ### Estado de un vistazo
 
@@ -61,6 +71,7 @@ sigue con su copia del código, pendiente de pasarlo). Los demás son proyectos 
 | Juegos de Dreamcast con dc2naomi | ✅ varios · 🧪 otros | ver «Estado» |
 | OutRunners | 🧪 | imagen a ~60 fps; sonido, sombras y START=moneda sin probar en placa |
 | Hang-On, Konami GT (MAME4ALL) | ⚠️ | ~46 fps y cuelgues |
+| Mario Kart 64 (dc2naomi, port de Dreamcast) | ✅ | ~30 fps; sin VMU todavía |
 | Virtua Racing (model1-naomi) | estudio | nada jugable |
 
 ✅ funciona en placa · 🧪 subido, sin probar · ⚠️ con problemas.
@@ -115,7 +126,7 @@ Cada documento está en español con su traducción al inglés al final.
 |---|---|
 | [docs/pi60-juegos.md](docs/pi60-juegos.md) | Juego a juego, qué hay en la Raspberry del mueble y su estado en placa |
 | [docs/juegos.md](docs/juegos.md) | Catálogo por niveles de dificultad: nativos de NAOMI, ports propios, recopilatorios de Dreamcast, parches |
-| [docs/hardware.md](docs/hardware.md) | El mueble: placa, carga, valores JVS de volante y pedales, trampas del hardware real |
+| [docs/hardware.md](docs/hardware.md) | El mueble: índice que lleva a [crazytaxi_cabinet_info](https://github.com/0skarzer0/crazytaxi_cabinet_info), la fuente (valores JVS, placa, trampas del hardware real) |
 | [docs/investigacion.md](docs/investigacion.md) | Versiones de MAME/FBA candidatas, arquitectura del port MAME4ALL, decompilaciones y recompilaciones |
 | [docs/crazy-taxi-dreamcast-vs-naomi.md](docs/crazy-taxi-dreamcast-vs-naomi.md) | Qué cambió SEGA entre el Crazy Taxi de Dreamcast y el de NAOMI |
 | [docs/historial.md](docs/historial.md) | Estados y pendientes antiguos, con su fecha |
@@ -142,7 +153,7 @@ El código, el HANDOFF y los estudios de cada proyecto están en su repositorio 
 | Monitor | 31 kHz (VGA 640x480) |
 | Controles | Volante analógico (~270°), acelerador, freno, palanca de 2 posiciones con retorno (adelante/atrás), START, monedero |
 
-Detalle, valores medidos y consecuencias para cada tipo de juego: [docs/hardware.md](docs/hardware.md).
+Detalle, valores medidos y consecuencias para cada tipo de juego: [crazytaxi_cabinet_info](https://github.com/0skarzer0/crazytaxi_cabinet_info).
 
 ---
 
@@ -244,6 +255,7 @@ native Daytona still has its own copy of the code, to be moved over). The others
 | Dreamcast games with dc2naomi | ✅ several · 🧪 others | see "Status" |
 | OutRunners | 🧪 | picture at ~60 fps; sound, shadows and START = coin not yet tested on the board |
 | Hang-On, Konami GT (MAME4ALL) | ⚠️ | ~46 fps and hangs |
+| Mario Kart 64 (dc2naomi, Dreamcast port) | ✅ | ~30 fps; no VMU yet |
 | Virtua Racing (model1-naomi) | study | nothing playable |
 
 ✅ works on the board · 🧪 uploaded, untested · ⚠️ with problems.
@@ -300,7 +312,7 @@ Each document is in Spanish with its English translation at the end.
 |---|---|
 | [docs/pi60-juegos.md](docs/pi60-juegos.md) | Game by game, what is on the cabinet's Raspberry Pi and its status on the board |
 | [docs/juegos.md](docs/juegos.md) | Catalogue by difficulty: native NAOMI games, own ports, Dreamcast compilations, patches |
-| [docs/hardware.md](docs/hardware.md) | The cabinet: board, loading, JVS values of the wheel and pedals, real-hardware traps |
+| [docs/hardware.md](docs/hardware.md) | The cabinet: an index into [crazytaxi_cabinet_info](https://github.com/0skarzer0/crazytaxi_cabinet_info), the source (JVS values, board, real-hardware traps) |
 | [docs/investigacion.md](docs/investigacion.md) | Candidate MAME/FBA versions, architecture of the MAME4ALL port, decompilations and recompilations |
 | [docs/crazy-taxi-dreamcast-vs-naomi.md](docs/crazy-taxi-dreamcast-vs-naomi.md) | What SEGA changed between the Dreamcast and the NAOMI Crazy Taxi |
 | [docs/historial.md](docs/historial.md) | Old statuses and to-do lists, dated |
@@ -327,7 +339,7 @@ The code, the HANDOFF and the studies of each project are in its own repository 
 | Monitor | 31 kHz (VGA 640x480) |
 | Controls | Analogue wheel (~270°), accelerator, brake, 2-position spring-return shifter (forward/back), START, coin mech |
 
-Details, measured values and what they mean for each kind of game: [docs/hardware.md](docs/hardware.md).
+Details, measured values and what they mean for each kind of game: [crazytaxi_cabinet_info](https://github.com/0skarzer0/crazytaxi_cabinet_info).
 
 #### Legal notice
 
