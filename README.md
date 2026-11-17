@@ -23,7 +23,8 @@ todo para que otros usuarios (y otras IAs) puedan reutilizar el trabajo.
 | [dc2naomi](https://github.com/0skarzer0/dc2naomi) | Cargador de juegos de Dreamcast en NAOMI (experimental) | [HANDOFF.md](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md) |
 | [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches) | Parches de controles (IPS) para juegos NAOMI / NAOMI 2 / Atomiswave en el mueble Crazy Taxi, y lector de tarjetas virtual (Initial D) | [HANDOFF.md](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md) |
 | [model1-naomi](https://github.com/0skarzer0/model1-naomi) | Virtua Racing (Sega Model 1) en NAOMI: estudio de viabilidad | [HANDOFF.md](https://github.com/0skarzer0/model1-naomi/blob/main/HANDOFF.md) |
-| [outrunners-port](https://github.com/0skarzer0/outrunners-port/tree/naomi) (rama `naomi`) | **OutRunners** para NAOMI: fork de [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port); el port en `ports/naomi/` | [ports/naomi/HANDOFF.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/HANDOFF.md) (y el estudio: [ports/naomi/docs/study.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md)) |
+| [OutRunners-Dreamcast](https://github.com/0skarzer0/OutRunners-Dreamcast/tree/naomi) (rama `naomi`) | **OutRunners** para NAOMI: fork del port de Dreamcast de [MisterPezz82](https://github.com/MisterPezz82/OutRunners-Dreamcast) (sobre el de cheviman); el port en `ports/naomi/`. **El que se usa** | [ports/naomi/README.md](https://github.com/0skarzer0/OutRunners-Dreamcast/blob/naomi/ports/naomi/README.md) |
+| [outrunners-port](https://github.com/0skarzer0/outrunners-port/tree/naomi) (rama `naomi`) | *Sustituido:* el primer port nativo de OutRunners (fork de [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port)); sus medidas y arreglos quedan de referencia | [ports/naomi/HANDOFF.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/HANDOFF.md) (y el estudio: [ports/naomi/docs/study.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md)) |
 | [naomi-pi-tools](https://github.com/0skarzer0/naomi-pi-tools) | Scripts de la Raspberry y del PC: enviar juegos, parar el VMU, timehack, `live.py`, añadir filas a `romsinfo.csv` | [HANDOFF](https://github.com/0skarzer0/naomi-pi-tools/blob/main/HANDOFF.md) |
 | [crazytaxi_cabinet_info](https://github.com/0skarzer0/crazytaxi_cabinet_info) | Solo documentación del mueble: JVS, valores de volante y pedales, trampas del hardware real | [HANDOFF](https://github.com/0skarzer0/crazytaxi_cabinet_info/blob/main/HANDOFF.md) |
 | [naomi-kit](https://github.com/0skarzer0/naomi-kit) | Librería común de los ports nativos a NAOMI: arranque, volante y monedas, ficheros de la NetDIMM, bloque «live», accesos desalineados y scripts de la Pi | [HANDOFF del kit](https://github.com/0skarzer0/naomi-kit/blob/main/HANDOFF.md) |
@@ -37,7 +38,7 @@ flowchart LR
     subgraph juegos["Juegos y ports"]
         kit["naomi-kit<br/>librería de los ports nativos"]
         kit --> day["Daytona USA nativo<br/>(daytona-arcade-recomp, naomi-native)"]
-        kit --> orun["OutRunners<br/>(outrunners-port, naomi)"]
+        kit --> orun["OutRunners<br/>(OutRunners-Dreamcast, naomi)"]
         kit -.-> next["próximos ports"]
         cb["Cannonball (OutRun)<br/>(dreamcast-cannonball, naomi)"]
         m4["mame4all-naomi<br/>Super Sprint, Hang-On…"]
@@ -69,7 +70,7 @@ y `crazytaxi_cabinet_info` (la **única fuente** de los datos del mueble).
 | Cannonball (OutRun) | ✅ 60 fps | |
 | Super Sprint (MAME4ALL) | ✅ 60 fps | |
 | Juegos de Dreamcast con dc2naomi | ✅ varios · 🧪 otros | ver «Estado» |
-| OutRunners | 🧪 | imagen a ~60 fps; sonido, sombras y START=moneda sin probar en placa |
+| OutRunners (port de Dreamcast de Pezz82) | ✅ 59-63 fps | volante, pedales, START = moneda y sonido bien; algo de «popping» de objetos lejanos |
 | Hang-On, Konami GT (MAME4ALL) | ⚠️ | ~46 fps y cuelgues |
 | Mario Kart 64 (dc2naomi, port de Dreamcast) | ✅ | ~30 fps; sin VMU todavía |
 | Virtua Racing (model1-naomi) | estudio | nada jugable |
@@ -94,8 +95,10 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
   y **Cannonball (OutRun)** a 60 fps; **Super Sprint** (MAME4ALL) a 60 fps; y con **dc2naomi**, Crazy Taxi 2, Namco
   Museum (Pole Position), Daytona USA 2001, F355 Challenge, 18 Wheeler, Sega Rally 2 y los cinco juegos de Yu Suzuki
   Game Works, todos con su VMU guardada en la Raspberry; y **Mario Kart 64** (port de Dreamcast, sin VMU todavía).
-- **En curso:** **OutRunners** (port nativo): imagen por la PowerVR2 a 60 fps en placa; sombras, fundidos exactos,
-  sonido en el AICA y un conversor para Windows hechos y sin probar en placa ([HANDOFF](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/HANDOFF.md)).
+- **En curso:** **OutRunners**: el port de Dreamcast de Pezz82 compilado para NAOMI funciona en el mueble a
+  59-63 fps (2026-11-17, [README](https://github.com/0skarzer0/OutRunners-Dreamcast/blob/naomi/ports/naomi/README.md));
+  falta aprovechar la memoria de la NAOMI para quitar el «popping». Sustituye al primer port nativo (outrunners-port),
+  que se quedaba en 30 fps en muchos tramos.
 - **Subidos, sin probar en placa:** una docena de juegos de Dreamcast convertidos con dc2naomi (Test Drive 6, Star
   Wars Racer, Metropolis Street Racer, SF Rush 2049, la demo de OutRun 2006 de ArkRetro…) y los
   parches de 18 Wheeler e Initial D (con lector de tarjetas virtual, ya arrancando en placa; falta ver que da y graba la
@@ -106,7 +109,8 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
 
 ## Siguientes pasos
 
-1. **OutRunners:** probar en placa la imagen con sonido, sombras y fundidos; luego el conversor para Windows.
+1. **OutRunners:** subir los límites de la Dreamcast (memoria de vídeo, gráficos descomprimidos en RAM, presupuesto
+   por fotograma) y medir cada paso en la placa; guardado en la SRAM; un conversor para Windows.
 2. **Probar en placa** los juegos de Dreamcast convertidos que faltan y los parches de 18 Wheeler e Initial D.
    Antes, **actualizar la BIOS multirregión** (v2.01, rev C/H) o confirmar su versión: sin eso 18 Wheeler e Initial D se
    cuelgan en el attract.
@@ -197,7 +201,7 @@ directa o como inspiración o ayuda indirecta. Si falta alguien, abrid una issue
   [agradecimientos](https://github.com/0skarzer0/dc2naomi#agradecimientos).
 - **gyrovorbis** ([SH4ZAM](https://github.com/gyrovorbis/sh4zam)) y **la comunidad de vgmrips**, cuyo pack de música de
   Daytona USA (Sega Model 2) es lo que suena en el port.
-- **Los autores de los proyectos de [investigacion.md](docs/investigacion.md)** que sirven de referencia o futura base: cheviman (OutRunners port y su descompilación; Aaron Giles, por ymfm, en el que se basa su YM3438),
+- **Los autores de los proyectos de [investigacion.md](docs/investigacion.md)** que sirven de referencia o futura base: MisterPezz82 (el port de Dreamcast de OutRunners, que es el que corre en el mueble), cheviman (OutRunners port y su descompilación; Aaron Giles, por ymfm, en el que se basa su YM3438),
   wanszai (Scud Race, Ridge Racer Collection, Sega Rally), namco22-decompile, la decompilación de Ridge Racer (PSX), el
   port de Wipeout a Dreamcast, Wave Race 64 DC y la decompilación de Sonic R.
 - **[jnmartin84](https://github.com/jnmartin84)** y su [mk64-dc](https://github.com/jnmartin84/mk64-dc), el port de
@@ -236,7 +240,8 @@ AIs) can reuse the work.
 | [dc2naomi](https://github.com/0skarzer0/dc2naomi) | Loader that runs Dreamcast games on the NAOMI (experimental) | [HANDOFF.md](https://github.com/0skarzer0/dc2naomi/blob/main/HANDOFF.md) |
 | [naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches) | Control patches (IPS) for NAOMI / NAOMI 2 / Atomiswave games on the Crazy Taxi cabinet, and a virtual card reader (Initial D) | [HANDOFF.md](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md) |
 | [model1-naomi](https://github.com/0skarzer0/model1-naomi) | Virtua Racing (Sega Model 1) on the NAOMI: feasibility study | [HANDOFF.md](https://github.com/0skarzer0/model1-naomi/blob/main/HANDOFF.md) |
-| [outrunners-port](https://github.com/0skarzer0/outrunners-port/tree/naomi) (branch `naomi`) | **OutRunners** for the NAOMI: fork of [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port); the port is in `ports/naomi/` | [ports/naomi/HANDOFF.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/HANDOFF.md) (and the study: [ports/naomi/docs/study.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md)) |
+| [OutRunners-Dreamcast](https://github.com/0skarzer0/OutRunners-Dreamcast/tree/naomi) (branch `naomi`) | **OutRunners** for the NAOMI: fork of [MisterPezz82](https://github.com/MisterPezz82/OutRunners-Dreamcast)'s Dreamcast port (on cheviman's); the port is in `ports/naomi/`. **The one in use** | [ports/naomi/README.md](https://github.com/0skarzer0/OutRunners-Dreamcast/blob/naomi/ports/naomi/README.md) |
+| [outrunners-port](https://github.com/0skarzer0/outrunners-port/tree/naomi) (branch `naomi`) | *Superseded:* the first native OutRunners port (fork of [cheviman/outrunners-port](https://github.com/cheviman/outrunners-port)); its measurements and fixes stay as a reference | [ports/naomi/HANDOFF.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/HANDOFF.md) (and the study: [ports/naomi/docs/study.md](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md)) |
 | [naomi-kit](https://github.com/0skarzer0/naomi-kit) | Shared library of the native NAOMI ports: boot, wheel and coins, NetDIMM files, "live" block, misaligned accesses and Raspberry Pi scripts | [the kit's HANDOFF](https://github.com/0skarzer0/naomi-kit/blob/main/HANDOFF.md) |
 | [naomi-pi-tools](https://github.com/0skarzer0/naomi-pi-tools) | Raspberry Pi and PC scripts: send games, stop the VMU watcher, timehack, `live.py`, add rows to `romsinfo.csv` | [HANDOFF](https://github.com/0skarzer0/naomi-pi-tools/blob/main/HANDOFF.md) |
 | [crazytaxi_cabinet_info](https://github.com/0skarzer0/crazytaxi_cabinet_info) | Documentation of the cabinet only: JVS, wheel and pedal values, traps of the real hardware | [HANDOFF](https://github.com/0skarzer0/crazytaxi_cabinet_info/blob/main/HANDOFF.md) |
@@ -253,7 +258,7 @@ native Daytona still has its own copy of the code, to be moved over). The others
 | Cannonball (OutRun) | ✅ 60 fps | |
 | Super Sprint (MAME4ALL) | ✅ 60 fps | |
 | Dreamcast games with dc2naomi | ✅ several · 🧪 others | see "Status" |
-| OutRunners | 🧪 | picture at ~60 fps; sound, shadows and START = coin not yet tested on the board |
+| OutRunners (Pezz82's Dreamcast port) | ✅ 59-63 fps | wheel, pedals, START = coin and sound right; some pop-in of far objects |
 | Hang-On, Konami GT (MAME4ALL) | ⚠️ | ~46 fps and hangs |
 | Mario Kart 64 (dc2naomi, Dreamcast port) | ✅ | ~30 fps; no VMU yet |
 | Virtua Racing (model1-naomi) | study | nothing playable |
@@ -279,9 +284,9 @@ What is loaded on the cabinet's Raspberry Pi and what has been tested on the boa
   **Cannonball (OutRun)** at 60 fps; **Super Sprint** (MAME4ALL) at 60 fps; and with **dc2naomi**, Crazy Taxi 2, Namco
   Museum (Pole Position), Daytona USA 2001, F355 Challenge, 18 Wheeler, Sega Rally 2 and the five Yu Suzuki Game
   Works games, all with their VMU saved on the Raspberry Pi; and **Mario Kart 64** (Dreamcast port, no VMU yet).
-- **In progress:** **OutRunners** (native port): picture through the PowerVR2 at 60 fps on the board; shadows, exact
-  fades, sound on the AICA and a Windows converter done but not yet tested on the board
-  ([HANDOFF](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/HANDOFF.md)).
+- **In progress:** **OutRunners**: Pezz82's Dreamcast port built for the NAOMI runs on the cabinet at 59-63 fps
+  (2026-11-17); next, use the NAOMI's memory to remove the pop-in. It replaces the first native port
+  (outrunners-port), which fell to 30 fps in many stretches.
 - **Uploaded, untested on the board:** a dozen Dreamcast games converted with dc2naomi (Test Drive 6, Star Wars Racer,
   Metropolis Street Racer, SF Rush 2049, ArkRetro's OutRun 2006 demo…) and the 18 Wheeler and Initial D patches
   (with a virtual card reader, already booting on the board; it remains to see that it issues and writes the card).
@@ -292,7 +297,8 @@ What is loaded on the cabinet's Raspberry Pi and what has been tested on the boa
 
 #### Next steps
 
-1. **OutRunners:** test on the board the image with sound, shadows and fades; then the Windows converter.
+1. **OutRunners:** raise the Dreamcast's limits (video memory, graphics unpacked in RAM, the frame budget) and
+   measure each step on the board; saves in the SRAM; a Windows converter.
 2. **Test on the board** the remaining converted Dreamcast games and the 18 Wheeler and Initial D patches. First,
    **update the multi-region BIOS** (v2.01, rev C/H) or confirm its version: without that, 18 Wheeler and Initial D
    hang in attract mode.
