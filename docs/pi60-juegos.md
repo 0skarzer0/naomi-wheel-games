@@ -73,6 +73,7 @@ port propio, `dc-` juego de Dreamcast convertido con dc2naomi (`_dc2naomict` = m
 | `dc-mk64_dc2naomict` (+ `mk64dbg`, diagnóstico) | Mario Kart 64 (port de Dreamcast compilado con KallistiOS parcheada: [receta](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/mk64)): acelerador = A, freno = B, palanca adelante = salto/derrape, atrás = objeto, volante 2,5 veces más rápido; sin VMU todavía | ✅ (la versión con la palanca cambiada, del 2026-11-13 tarde, está en la carpeta `dc2naomi` del PC: la Pi estaba apagada) |
 | `h-or2006_dc2naomi` | OutRun 2006 Coast 2 Coast, demo de ArkRetro v24 | 🧪 |
 | `h-or37_dc2naomict` | OutRun 2006 Coast 2 Coast, demo de ArkRetro v37: 4 de sus 28 canciones largas (las demás suenan como una de esas cuatro) | 🧪 |
+| `h-orc2c3_dc2naomict` | OutRun 2006 Coast 2 Coast "Turbo v3" de ArkRetro **compilado desde sus fuentes para NAOMI** ([dc2naomi/homebrew/orc2cdc](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/orc2cdc)): todas las canciones, datos comprimidos, 25 canciones largas a 22 kHz | 🧪 |
 
 En `/boot/roms/` hay además dos ficheros sin fila en el CSV (no salen en el menú): `daytona_native_naomi.bin.gz` y
 `initiald_exp_reva_vcard.bin.gz`, versiones de prueba (el Daytona nativo, en una compilación distinta de la del menú).
@@ -174,6 +175,7 @@ Dreamcast game converted with dc2naomi (`_dc2naomict` = Crazy Taxi cabinet contr
 | `dc-mk64_dc2naomict` (+ `mk64dbg`, diagnostics) | Mario Kart 64 (Dreamcast port built with a patched KallistiOS: [recipe](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/mk64)): accelerator = A, brake = B, shifter forward = hop/drift, back = item, wheel 2.5 times faster; no VMU yet | ✅ (the version with the changed shifter, from late 2026-11-13, is in the PC's `dc2naomi` folder: the Pi was off) |
 | `h-or2006_dc2naomi` | OutRun 2006 Coast 2 Coast, ArkRetro's demo v24 | 🧪 |
 | `h-or37_dc2naomict` | OutRun 2006 Coast 2 Coast, ArkRetro's demo v37: 4 of its 28 long songs (the others play as one of those four) | 🧪 |
+| `h-orc2c3_dc2naomict` | OutRun 2006 Coast 2 Coast "Turbo v3" by ArkRetro **built from its sources for the NAOMI** (dc2naomi/homebrew/orc2cdc): every song, compressed data, 25 long songs at 22 kHz | 🧪 |
 
 `/boot/roms/` also holds two files without a CSV row (not in the menu): `daytona_native_naomi.bin.gz` and
 `initiald_exp_reva_vcard.bin.gz`, test versions (native Daytona, in a build different from the menu's).
