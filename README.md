@@ -70,7 +70,7 @@ y `crazytaxi_cabinet_info` (la **única fuente** de los datos del mueble).
 | Cannonball (OutRun) | ✅ 60 fps | |
 | Super Sprint (MAME4ALL) | ✅ 60 fps | |
 | Juegos de Dreamcast con dc2naomi | ✅ varios · 🧪 otros | ver «Estado» |
-| OutRunners (port de Dreamcast de Pezz82) | ✅ 59-63 fps | volante, pedales, START = moneda y sonido bien; algo de «popping» de objetos lejanos |
+| OutRunners (port de Dreamcast de Pezz82) | ✅ 60 fps | dado por bueno el 2026-11-17: gráficos en RAM, muestras sin comprimir, 4 veces las texturas; volante, pedales, START = moneda y sonido bien |
 | Hang-On, Konami GT (MAME4ALL) | ⚠️ | ~46 fps y cuelgues |
 | Mario Kart 64 (dc2naomi, port de Dreamcast) | ✅ | ~30 fps; sin VMU todavía |
 | Virtua Racing (model1-naomi) | estudio | nada jugable |
@@ -97,7 +97,8 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
   Game Works, todos con su VMU guardada en la Raspberry; y **Mario Kart 64** (port de Dreamcast, sin VMU todavía).
 - **En curso:** **OutRunners**: el port de Dreamcast de Pezz82 compilado para NAOMI funciona en el mueble a
   59-63 fps (2026-11-17, [README](https://github.com/0skarzer0/OutRunners-Dreamcast/blob/naomi/ports/naomi/README.md));
-  falta aprovechar la memoria de la NAOMI para quitar el «popping». Sustituye al primer port nativo (outrunners-port),
+  con la memoria de la NAOMI aprovechada (gráficos en RAM, muestras sin comprimir, más texturas) quedó
+  **perfecta** para el dueño del mueble. Sustituye al primer port nativo (outrunners-port),
   que se quedaba en 30 fps en muchos tramos.
 - **Subidos, sin probar en placa:** una docena de juegos de Dreamcast convertidos con dc2naomi (Test Drive 6, Star
   Wars Racer, Metropolis Street Racer, SF Rush 2049, la demo de OutRun 2006 de ArkRetro…) y los
@@ -109,8 +110,7 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
 
 ## Siguientes pasos
 
-1. **OutRunners:** subir los límites de la Dreamcast (memoria de vídeo, gráficos descomprimidos en RAM, presupuesto
-   por fotograma) y medir cada paso en la placa; guardado en la SRAM; un conversor para Windows.
+1. **OutRunners:** guardado (récords) en la SRAM; un conversor para Windows.
 2. **Probar en placa** los juegos de Dreamcast convertidos que faltan y los parches de 18 Wheeler e Initial D.
    Antes, **actualizar la BIOS multirregión** (v2.01, rev C/H) o confirmar su versión: sin eso 18 Wheeler e Initial D se
    cuelgan en el attract.
@@ -258,7 +258,7 @@ native Daytona still has its own copy of the code, to be moved over). The others
 | Cannonball (OutRun) | ✅ 60 fps | |
 | Super Sprint (MAME4ALL) | ✅ 60 fps | |
 | Dreamcast games with dc2naomi | ✅ several · 🧪 others | see "Status" |
-| OutRunners (Pezz82's Dreamcast port) | ✅ 59-63 fps | wheel, pedals, START = coin and sound right; some pop-in of far objects |
+| OutRunners (Pezz82's Dreamcast port) | ✅ 60 fps | approved on 2026-11-17: graphics in RAM, samples uncompressed, 4x the textures; wheel, pedals, START = coin and sound right |
 | Hang-On, Konami GT (MAME4ALL) | ⚠️ | ~46 fps and hangs |
 | Mario Kart 64 (dc2naomi, Dreamcast port) | ✅ | ~30 fps; no VMU yet |
 | Virtua Racing (model1-naomi) | study | nothing playable |
@@ -285,7 +285,8 @@ What is loaded on the cabinet's Raspberry Pi and what has been tested on the boa
   Museum (Pole Position), Daytona USA 2001, F355 Challenge, 18 Wheeler, Sega Rally 2 and the five Yu Suzuki Game
   Works games, all with their VMU saved on the Raspberry Pi; and **Mario Kart 64** (Dreamcast port, no VMU yet).
 - **In progress:** **OutRunners**: Pezz82's Dreamcast port built for the NAOMI runs on the cabinet at 59-63 fps
-  (2026-11-17); next, use the NAOMI's memory to remove the pop-in. It replaces the first native port
+  (2026-11-17); with the NAOMI's memory used (graphics in RAM, samples uncompressed, more textures) the owner calls
+  it perfect. It replaces the first native port
   (outrunners-port), which fell to 30 fps in many stretches.
 - **Uploaded, untested on the board:** a dozen Dreamcast games converted with dc2naomi (Test Drive 6, Star Wars Racer,
   Metropolis Street Racer, SF Rush 2049, ArkRetro's OutRun 2006 demo…) and the 18 Wheeler and Initial D patches
@@ -297,8 +298,7 @@ What is loaded on the cabinet's Raspberry Pi and what has been tested on the boa
 
 #### Next steps
 
-1. **OutRunners:** raise the Dreamcast's limits (video memory, graphics unpacked in RAM, the frame budget) and
-   measure each step on the board; saves in the SRAM; a Windows converter.
+1. **OutRunners:** saves (records) in the SRAM; a Windows converter.
 2. **Test on the board** the remaining converted Dreamcast games and the 18 Wheeler and Initial D patches. First,
    **update the multi-region BIOS** (v2.01, rev C/H) or confirm its version: without that, 18 Wheeler and Initial D
    hang in attract mode.
