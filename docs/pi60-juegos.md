@@ -102,6 +102,11 @@ Lecciones: filtrar siempre por prefijo antes de sobrescribir en lote (sin origin
 cabecera); la Pi se reinició a mitad y dejó un `*.tmp` (se borra y se relanza, salta lo ya hecho). El detalle está en
 el [HANDOFF de naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md).
 
+2026-11-19: ERROR 02 («THIS GAME IS NOT ACCEPTABLE BY MAIN BOARD») en imágenes solo para Japón: arreglado con
+[`tools/region_ff.py`](https://github.com/0skarzer0/naomi-ct-patches/blob/main/tools/region_ff.py) en Capcom vs SNK Pro
+(✅ en placa), Guilty Gear XX #Reload y VF4 Evolution Ver.B. Solo quedan VF4 Ver.B, Evolution Ver.B y Final Tuned
+Ver.B, y el CSV tiene una fila por fichero (174).
+
 ## Initial D: se cuelga en el attract tras una partida (2026-11-12)
 
 Tras una partida, en el attract (modo de repetición), el juego se cuelga igual con el volcado **original sin parchear**,
@@ -219,6 +224,11 @@ header: `n1-ninja_assault-[25469801_NJA3_Ver.A]` and `n1-the_house_of_the_dead_2
 Lessons: always filter by prefix before overwriting in bulk (with no originals, undoing it means rebuilding the
 header); the Pi rebooted halfway and left a `*.tmp` (delete it and relaunch; it skips what is done). Details in the
 [naomi-ct-patches HANDOFF](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md).
+
+2026-11-19: ERROR 02 ("THIS GAME IS NOT ACCEPTABLE BY MAIN BOARD") on Japan-only images: fixed with
+[`tools/region_ff.py`](https://github.com/0skarzer0/naomi-ct-patches/blob/main/tools/region_ff.py) on Capcom vs SNK Pro
+(✅ on the board), Guilty Gear XX #Reload and VF4 Evolution Ver.B. Only VF4 Ver.B, Evolution Ver.B and Final Tuned
+Ver.B remain, and the CSV has one row per file (174).
 
 #### Initial D: hangs in attract mode after a game (2026-11-12)
 
