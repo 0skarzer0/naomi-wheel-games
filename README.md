@@ -105,6 +105,8 @@ Qué está cargado en la Raspberry del mueble y qué está probado en placa, jue
   parches de 18 Wheeler e Initial D (con lector de tarjetas virtual, ya arrancando en placa; falta ver que da y graba la
   tarjeta). Los dos cuelgan en el attract con la BIOS multirregión de la placa aunque no estén parcheados ([detalle](docs/pi60-juegos.md)).
 - **Free play y attract sin sonido** puestos en la cabecera de 49 de las 50 imágenes de la Raspberry (2026-11-13).
+  En la Raspberry del mueble estándar (`.250`) también (2026-11-18): 159 imágenes NAOMI / NAOMI 2 / Atomiswave parcheadas
+  sobrescribiendo, sin tocar las de Dreamcast ([detalle](docs/pi60-juegos.md)).
 - **Lentos en placa:** Hang-On y Konami GT (MAME4ALL), ~46 fps y cuelgues.
 - **Estudio:** model1-naomi (¿puede el SH-4 emular el V60 de Virtua Racing?), nada jugable todavía.
 
@@ -189,6 +191,7 @@ directa o como inspiración o ayuda indirecta. Si falta alguien, abrid una issue
   ports nativos de este proyecto; y los proyectos **GNU binutils, GCC y newlib**, que forman la toolchain `sh-elf`.
 - **El WiPi Netbooter y Piforce / [Piforce-Web](https://github.com/dev-tty0/Piforce-Web)**, que a su vez usan las
   herramientas Triforce de debugmode: la Raspberry Pi que arranca la placa por red.
+- **pigz** ([Mark Adler](https://zlib.net/pigz/)) y **[paramiko](https://www.paramiko.org/)** (Jeff Forcier y colaboradores): descomprimir y recomprimir las imágenes en la Raspberry, y acceder a ellas por SSH desde el PC, al parchear free play y attract mudo.
 - **Darksoft**, por las conversiones AW2NAOMI de Atomiswave.
 - **Chris White**, autor de **Cannonball** (OutRun), y quienes lo portaron a Dreamcast, de donde parte el port a NAOMI
   ([dreamcast-cannonball](https://github.com/0skarzer0/dreamcast-cannonball)).
@@ -373,6 +376,7 @@ inspiration or indirect help. If anyone is missing, open an issue and they will 
   port in this project; and the **GNU binutils, GCC and newlib** projects, which make up the `sh-elf` toolchain.
 - **The WiPi Netbooter and Piforce / [Piforce-Web](https://github.com/dev-tty0/Piforce-Web)**, which in turn use
   debugmode's Triforce tools: the Raspberry Pi that boots the board over the network.
+- **pigz** ([Mark Adler](https://zlib.net/pigz/)) and **[paramiko](https://www.paramiko.org/)** (Jeff Forcier and contributors): decompressing and recompressing the images on the Raspberry Pi, and reaching it over SSH from the PC, when patching free play and silent attract.
 - **Darksoft**, for the AW2NAOMI Atomiswave conversions.
 - **Chris White**, author of **Cannonball** (OutRun), and those who ported it to the Dreamcast, where the NAOMI port
   starts from ([dreamcast-cannonball](https://github.com/0skarzer0/dreamcast-cannonball)).

@@ -86,6 +86,22 @@ la cabecera de **49 de las 50 imágenes** los ajustes por defecto de las 8 regio
 al cambiar de juego, y algunos juegos tienen además su propio ajuste de sonido en GAME ASSIGNMENTS. Las imágenes
 nuevas hay que pasarlas también por el script.
 
+### Segunda Raspberry: mueble NAOMI estándar, `192.168.68.250` (2026-11-18)
+
+Misma operación en la otra Pi (NetDIMM en `10.0.0.3`, dos joysticks y 6 botones por jugador), pero con
+[`tools/sysdef_inplace.py`](https://github.com/0skarzer0/naomi-ct-patches/blob/main/tools/sysdef_inplace.py):
+las imágenes se **sobrescriben sin guardar originales** (así no hay que tocar `romsinfo.csv`) y **solo** se parchean
+las NAOMI, NAOMI 2 y Atomiswave (prefijos `aw-`, `n1-`, `n2-`). Las conversiones de Dreamcast (`dc-*`) y el homebrew
+(`h-*`) no se tocan en esa Pi.
+
+Resultado sobre 190 imágenes (cabeceras comprobadas una a una): **159 parcheadas**; 29 dc2naomi/homebrew con la zona
+de la cabecera a ceros (se parchearon por error y se **reconstruyeron**, ver abajo); **2 sin tocar** por no tener
+cabecera NAOMI: `n1-ninja_assault-[25469801_NJA3_Ver.A]` y `n1-the_house_of_the_dead_2-[834-13636]`.
+
+Lecciones: filtrar siempre por prefijo antes de sobrescribir en lote (sin originales, deshacerlo exige reconstruir la
+cabecera); la Pi se reinició a mitad y dejó un `*.tmp` (se borra y se relanza, salta lo ya hecho). El detalle está en
+el [HANDOFF de naomi-ct-patches](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md).
+
 ## Initial D: se cuelga en el attract tras una partida (2026-11-12)
 
 Tras una partida, en el attract (modo de repetición), el juego se cuelga igual con el volcado **original sin parchear**,
@@ -187,6 +203,22 @@ settings of the 8 regions (free play, silent attract) were changed in the header
 (King of Route 66) is corrupt. The originals are in `/boot/roms_orig/` on the Pi. The BIOS only applies those values
 when the game changes, and some games also have their own sound setting in GAME ASSIGNMENTS. New images have to go
 through the script too.
+
+#### Second Raspberry Pi: standard NAOMI cabinet, `192.168.68.250` (2026-11-18)
+
+Same operation on the other Pi (NetDIMM at `10.0.0.3`, two joysticks and 6 buttons per player), but with
+[`tools/sysdef_inplace.py`](https://github.com/0skarzer0/naomi-ct-patches/blob/main/tools/sysdef_inplace.py): the
+images are **overwritten without keeping originals** (so `romsinfo.csv` needs no change) and **only** NAOMI, NAOMI 2
+and Atomiswave images (prefixes `aw-`, `n1-`, `n2-`) are patched. Dreamcast conversions (`dc-*`) and homebrew (`h-*`)
+are left alone on that Pi.
+
+Result over 190 images (headers checked one by one): **159 patched**; 29 dc2naomi/homebrew with the header zone at
+zeros (they were patched by mistake and **reconstructed**, see below); **2 untouched** because they have no NAOMI
+header: `n1-ninja_assault-[25469801_NJA3_Ver.A]` and `n1-the_house_of_the_dead_2-[834-13636]`.
+
+Lessons: always filter by prefix before overwriting in bulk (with no originals, undoing it means rebuilding the
+header); the Pi rebooted halfway and left a `*.tmp` (delete it and relaunch; it skips what is done). Details in the
+[naomi-ct-patches HANDOFF](https://github.com/0skarzer0/naomi-ct-patches/blob/main/HANDOFF.md).
 
 #### Initial D: hangs in attract mode after a game (2026-11-12)
 
