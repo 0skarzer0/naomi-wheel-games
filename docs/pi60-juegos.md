@@ -60,16 +60,16 @@ port propio, `dc-` juego de Dreamcast convertido con dc2naomi (`_dc2naomict` = m
 | `dc-powerdrift_dc2naomict` | Power Drift (de Yu Suzuki GW): petardeo de la música resuelto | ✅ |
 | `dc-afterburner2_dc2naomict` | After Burner II: disparo automático, acelerador = gases, freno = misil, START + acelerador = frenar, START + freno = quitar o poner el disparo automático; luces del arcade en el botón START | ✅ |
 | `dc-spaceharrier_dc2naomict` | Space Harrier: disparo rápido (10 por segundo) en el acelerador | ✅ |
-| `dc-td6_dc2naomict` | Test Drive 6 | 🧪 |
-| `dc-tdlemans_dc2naomict` | Test Drive Le Mans | 🧪 |
-| `dc-wackyraces_dc2naomict` | Wacky Races | 🧪 |
+| `dc-td6_dc2naomict` | Test Drive 6 | ✅ |
+| `dc-tdlemans_dc2naomict` | Test Drive Le Mans | ✅ |
+| `dc-wackyraces_dc2naomict` | Wacky Races | ✅ |
 | `dc-jmsx2000_dc2naomict` | Jeremy McGrath Supercross 2000 | 🧪 |
 | `dc-swracer_dc2naomict` | Star Wars Episode I Racer | 🧪 |
 | `dc-demolition_dc2naomict` | Demolition Racer No Exit (vídeos recodificados) | 🧪 |
 | `dc-tnnhh_dc2naomict` | TNN Motorsports Hardcore Heat (vídeos recodificados) | 🧪 |
 | `dc-txr2_dc2naomict` | Tokyo Xtreme Racer 2 (vídeos recodificados) | 🧪 |
-| `dc-msr_dc2naomict` | Metropolis Street Racer (audio a mono) | 🧪 |
-| `dc-rush2049_dc2naomict` / `dc-rush2049_9_dc2naomict` | San Francisco Rush 2049: música en mono / 9 canciones intactas | 🧪 |
+| `dc-msr_dc2naomict` | Metropolis Street Racer (audio a mono) | ✅ |
+| `dc-rush2049_dc2naomict` / `dc-rush2049_9_dc2naomict` | San Francisco Rush 2049: música en mono / 9 canciones intactas | 🧪 (en placa, tras START el menú va lento: sin resolver) |
 | `dc-mk64_dc2naomict` (+ `mk64dbg`, diagnóstico) | Mario Kart 64 (port de Dreamcast compilado con KallistiOS parcheada: [receta](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/mk64)): acelerador = A, freno = B, palanca adelante = salto/derrape, atrás = objeto, volante 2,5 veces más rápido; sin VMU todavía | ✅ (la versión con la palanca cambiada, del 2026-11-13 tarde, está en la carpeta `dc2naomi` del PC: la Pi estaba apagada) |
 | `h-or2006_dc2naomi` | OutRun 2006 Coast 2 Coast, demo de ArkRetro v24 | 🧪 |
 | `h-or37_dc2naomict` | OutRun 2006 Coast 2 Coast, demo de ArkRetro v37: 4 de sus 28 canciones largas (las demás suenan como una de esas cuatro) | 🧪 |
@@ -183,16 +183,16 @@ Dreamcast game converted with dc2naomi (`_dc2naomict` = Crazy Taxi cabinet contr
 | `dc-powerdrift_dc2naomict` | Power Drift (from Yu Suzuki GW): music crackling fixed | ✅ |
 | `dc-afterburner2_dc2naomict` | After Burner II: auto-fire, accelerator = throttle, brake = missile, START + accelerator = slow down, START + brake = auto-fire on or off; the arcade's lamps on the START button | ✅ |
 | `dc-spaceharrier_dc2naomict` | Space Harrier: rapid fire (10 per second) on the accelerator | ✅ |
-| `dc-td6_dc2naomict` | Test Drive 6 | 🧪 |
-| `dc-tdlemans_dc2naomict` | Test Drive Le Mans | 🧪 |
-| `dc-wackyraces_dc2naomict` | Wacky Races | 🧪 |
+| `dc-td6_dc2naomict` | Test Drive 6 | ✅ |
+| `dc-tdlemans_dc2naomict` | Test Drive Le Mans | ✅ |
+| `dc-wackyraces_dc2naomict` | Wacky Races | ✅ |
 | `dc-jmsx2000_dc2naomict` | Jeremy McGrath Supercross 2000 | 🧪 |
 | `dc-swracer_dc2naomict` | Star Wars Episode I Racer | 🧪 |
 | `dc-demolition_dc2naomict` | Demolition Racer No Exit (re-encoded videos) | 🧪 |
 | `dc-tnnhh_dc2naomict` | TNN Motorsports Hardcore Heat (re-encoded videos) | 🧪 |
 | `dc-txr2_dc2naomict` | Tokyo Xtreme Racer 2 (re-encoded videos) | 🧪 |
-| `dc-msr_dc2naomict` | Metropolis Street Racer (mono audio) | 🧪 |
-| `dc-rush2049_dc2naomict` / `dc-rush2049_9_dc2naomict` | San Francisco Rush 2049: mono music / 9 untouched songs | 🧪 |
+| `dc-msr_dc2naomict` | Metropolis Street Racer (mono audio) | ✅ |
+| `dc-rush2049_dc2naomict` / `dc-rush2049_9_dc2naomict` | San Francisco Rush 2049: mono music / 9 untouched songs | 🧪 (on the board the menu after START is slow: unsolved) |
 | `dc-mk64_dc2naomict` (+ `mk64dbg`, diagnostics) | Mario Kart 64 (Dreamcast port built with a patched KallistiOS: [recipe](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/mk64)): accelerator = A, brake = B, shifter forward = hop/drift, back = item, wheel 2.5 times faster; no VMU yet | ✅ (the version with the changed shifter, from late 2026-11-13, is in the PC's `dc2naomi` folder: the Pi was off) |
 | `h-or2006_dc2naomi` | OutRun 2006 Coast 2 Coast, ArkRetro's demo v24 | 🧪 |
 | `h-or37_dc2naomict` | OutRun 2006 Coast 2 Coast, ArkRetro's demo v37: 4 of its 28 long songs (the others play as one of those four) | 🧪 |
