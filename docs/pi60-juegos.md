@@ -44,7 +44,7 @@ port propio, `dc-` juego de Dreamcast convertido con dc2naomi (`_dc2naomict` = m
 | `h-jvstest` | Prueba de entradas JVS (calibración de volante y pedales) | ✅ |
 | `h-outrunners_naomi` | OutRunners, port nativo ([estudio de OutRunners](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md)): imagen PowerVR2 a ~60 fps; sonido por el AICA aún sin probar (en pruebas) | 🧪 |
 | `h-nesterdc_naomi` | NesterDC 7.1 (emulador de NES, [dc2naomi/homebrew/nesterdc](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/nesterdc)) con 143 ROMs y menú propio; START + volante derecha vuelve al menú | ✅ |
-| `h-nesterse_naomi` | NesterDC SE v1.1 **compilado desde sus fuentes para NAOMI** ([dc2naomi/homebrew/nesterse](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/nesterse)), con los mismos ROMs en `NES/` (carpeta Arcade Ports incluida); perfil de mandos `nes`, VMU emulada (2026-11-26) | 🧪 llega al juego en Flycast; sin probar en placa ni el sonido |
+| `h-nesterse_naomi` | NesterDC SE v1.1 **compilado desde sus fuentes para NAOMI** ([dc2naomi/homebrew/nesterse](https://github.com/0skarzer0/dc2naomi/tree/main/homebrew/nesterse)), con los mismos ROMs en `NES/` (carpeta Arcade Ports incluida); perfil de mandos `nes`, VMU emulada (2026-11-26) | ✅ con sonido; START + volante derecha vuelve al explorador (2026-11-26) |
 
 ## Juegos de Dreamcast convertidos con [dc2naomi](https://github.com/0skarzer0/dc2naomi)
 
@@ -172,7 +172,7 @@ Dreamcast game converted with dc2naomi (`_dc2naomict` = Crazy Taxi cabinet contr
 | `h-jvstest` | JVS input test (wheel and pedal calibration) | ✅ |
 | `h-outrunners_naomi` | OutRunners, native port ([OutRunners study](https://github.com/0skarzer0/outrunners-port/blob/naomi/ports/naomi/docs/study.md)): PowerVR2 picture at ~60 fps; sound through the AICA not yet tested (being tested) | 🧪 |
 | `h-nesterdc_naomi` | NesterDC 7.1 (NES emulator, dc2naomi/homebrew/nesterdc) with 143 ROMs and its own menu; START + wheel right goes back to the menu | ✅ |
-| `h-nesterse_naomi` | NesterDC SE v1.1 **built from its sources for the NAOMI** (dc2naomi/homebrew/nesterse), with the same ROMs in `NES/` (Arcade Ports folder included); `nes` control profile, emulated VMU (2026-11-26) | 🧪 reaches the game in Flycast; not tested on the board, sound not checked |
+| `h-nesterse_naomi` | NesterDC SE v1.1 **built from its sources for the NAOMI** (dc2naomi/homebrew/nesterse), with the same ROMs in `NES/` (Arcade Ports folder included); `nes` control profile, emulated VMU (2026-11-26) | ✅ with sound; START + wheel right goes back to the file browser (2026-11-26) |
 
 #### Dreamcast games converted with [dc2naomi](https://github.com/0skarzer0/dc2naomi)
 
