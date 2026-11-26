@@ -54,6 +54,8 @@ port propio, `dc-` juego de Dreamcast convertido con dc2naomi (`_dc2naomict` = m
 | `dc-f355b_dc2naomi` | F355 Challenge | ✅ |
 | `dc-18wheeler2_dc2naomi` | 18 Wheeler: American Pro Trucker | ✅ |
 | `dc-sega_rally2_dc2naomi` | Sega Rally 2 (Windows CE; 30 FPS de serie; sin la música de carrera, que es audio de CD) | ✅ |
+| `dc-sr2dx_dc2naomi` | Sega Rally 2 DX Edition (versión mejorada de PITITO sobre el disco japonés, en castellano; músicas de los menús a 22 kHz para que quepa; VMU nueva: L 14 veces en el título lo desbloquea todo) | 🧪 llega a la carrera en Flycast |
+| `dc-sr2eu_dc2naomi` | Sega Rally 2 DX European (variante europea de la DX, mismo autor; su propia VMU) | 🧪 llega a la carrera en Flycast |
 | `dc-ysgw7_dc2naomi` | Yu Suzuki Game Works Vol. 1, disco entero | ✅ |
 | `dc-outrun_dc2naomict` | OutRun (de Yu Suzuki GW) | ✅ |
 | `dc-hangon_dc2naomict` | Hang-On (de Yu Suzuki GW) | ✅ |
@@ -178,6 +180,8 @@ Dreamcast game converted with dc2naomi (`_dc2naomict` = Crazy Taxi cabinet contr
 | `dc-f355b_dc2naomi` | F355 Challenge | ✅ |
 | `dc-18wheeler2_dc2naomi` | 18 Wheeler: American Pro Trucker | ✅ |
 | `dc-sega_rally2_dc2naomi` | Sega Rally 2 (Windows CE; 30 FPS by default; without the race music, which is CD audio) | ✅ |
+| `dc-sr2dx_dc2naomi` | Sega Rally 2 DX Edition (PITITO's improved version of the Japanese disc, in Spanish; menu music at 22 kHz so that it fits; new VMU: press L 14 times on the title screen to unlock everything) | 🧪 reaches the race in Flycast |
+| `dc-sr2eu_dc2naomi` | Sega Rally 2 DX European (European variant of the DX, same author; its own VMU) | 🧪 reaches the race in Flycast |
 | `dc-ysgw7_dc2naomi` | Yu Suzuki Game Works Vol. 1, whole disc | ✅ |
 | `dc-outrun_dc2naomict` | OutRun (from Yu Suzuki GW) | ✅ |
 | `dc-hangon_dc2naomict` | Hang-On (from Yu Suzuki GW) | ✅ |
