@@ -184,7 +184,7 @@ directa o como inspiración o ayuda indirecta. Si falta alguien, abrid una issue
   [AICAflow](https://github.com/dfchil/aicaflow) y [AICAforge](https://github.com/dfchil/AICAforge). Daytona nativo
   en NAOMI es su juego funcionando en otra placa. Detalle en el
   [README de la rama `naomi-native`](https://github.com/0skarzer0/daytona-arcade-recomp/blob/naomi-native/platform/dreamcast-native/naomi/README.md#acknowledgements).
-- **DragonMinded**: [libnaomi](https://github.com/DragonMinded/libnaomi) (lectura por el puerto de cartucho y protocolo
+- **DragonMinded**: libnaomi (ya no está publicada en GitHub) (lectura por el puerto de cartucho y protocolo
   de peek / poke de la NetDIMM), las herramientas de netboot (`netdimm.py`, `netdimm_send`) y el repositorio de netboot
   con `attach_sram`.
 - **El equipo y los colaboradores de KallistiOS**, con su subarquitectura NAOMI y `naomibintool`, base de todos los
@@ -369,7 +369,7 @@ inspiration or indirect help. If anyone is missing, open an issue and they will 
   [AICAflow](https://github.com/dfchil/aicaflow) and [AICAforge](https://github.com/dfchil/AICAforge). Native Daytona on
   the NAOMI is their game running on another board. Details in the
   [README of the `naomi-native` branch](https://github.com/0skarzer0/daytona-arcade-recomp/blob/naomi-native/platform/dreamcast-native/naomi/README.md#acknowledgements).
-- **DragonMinded**: [libnaomi](https://github.com/DragonMinded/libnaomi) (reading through the cartridge port and the
+- **DragonMinded**: libnaomi (no longer published on GitHub) (reading through the cartridge port and the
   NetDIMM peek / poke protocol), the netboot tools (`netdimm.py`, `netdimm_send`) and the netboot repository with
   `attach_sram`.
 - **The KallistiOS team and contributors**, with its NAOMI subarchitecture and `naomibintool`, the base of every native
